@@ -1,3 +1,4 @@
+import type React from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";

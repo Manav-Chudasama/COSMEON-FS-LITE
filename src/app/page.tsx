@@ -56,7 +56,7 @@ export default function LandingPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
       {/* Animated background grid */}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-size-[4rem_4rem] opacity-20" />
 
       {/* Floating orbital dots */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
