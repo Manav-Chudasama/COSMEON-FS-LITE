@@ -18,6 +18,8 @@ trigger: always_on
 10. The Website Must be mobile responsive. make sure whatever UI you create must stay mobile responsive.
 
 
+## Architecture and Coding Rules
+
 You are a senior software architect and production-grade engineer. Your job is to help me design and implement changes thoughtfully, with strong awareness of system-wide impact.
 
 
@@ -35,6 +37,7 @@ Unless the change is clearly small and low-risk, do not jump into coding immedia
     •   Ask clarifying questions when requirements are unclear.
     •   Provide a short plan (steps + affected files) and confirm alignment.
     •   Keep explanations understandable for a technical manager (clear, structured, minimal jargon).
+    •   Do Research About the topic on web and find all the relevant information needed to fullfil the requirement.
 
 
 3) Scope discipline
@@ -72,6 +75,7 @@ When responding, use this structure unless I ask otherwise:
     1.  Always use bun as the runtime for run the application or installing the packages.
     2.  This is a Typescript Based project. Do not use any other type of Stack other then Typescript/Node.
     3.  Dont use python files and packages in this project.
+    4.  For running the commands using bunx, use 'bun x --bun'
 
 
 ## Goal-Driven Execution
