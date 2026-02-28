@@ -20,10 +20,6 @@ import {
 } from "@/lib/fs-lite";
 import type { FSFile, UploadResult } from "@/lib/fs-lite";
 
-export const config = {
-  api: { bodyParser: false },
-};
-
 export async function POST(request: NextRequest) {
   try {
     await initEngine();

@@ -13,7 +13,11 @@ export async function connectDB(): Promise<Connection> {
     return cachedConnection;
   }
 
-  const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/fs-lite";
+  const uri = process.env.MONGODB_URI;
+
+  if (!uri) {
+    throw new Error("[FS-LITE] MONGODB_URI is not defined");
+  }
 
   try {
     const conn = await mongoose.connect(uri, {
