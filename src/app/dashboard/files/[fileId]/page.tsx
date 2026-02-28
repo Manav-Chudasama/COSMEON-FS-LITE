@@ -1,26 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { motion } from "motion/react";
 import {
   ArrowLeft,
-  ShieldCheck,
-  Download,
   CheckCircle2,
-  XCircle,
-  Loader2,
-  Satellite,
   ChevronLeft,
   ChevronRight,
-  TreePine,
-  Search,
+  Download,
   Hash,
+  Loader2,
+  Satellite,
+  Search,
+  ShieldCheck,
+  TreePine,
+  XCircle,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { motion } from "motion/react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -29,15 +38,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Progress } from "@/components/ui/progress";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
 import type { IntegrityReport } from "@/lib/fs-lite/types";
 
 function formatBytes(bytes: number): string {

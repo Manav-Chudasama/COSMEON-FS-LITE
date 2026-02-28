@@ -3,8 +3,8 @@
 // ============================================
 
 import { NextResponse } from "next/server";
-import { initEngine, getNodes, listFiles, chunkCache } from "@/lib/fs-lite";
 import type { SystemStats } from "@/lib/fs-lite";
+import { chunkCache, getNodes, initEngine, listFiles } from "@/lib/fs-lite";
 
 export const dynamic = "force-dynamic";
 

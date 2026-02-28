@@ -2,7 +2,7 @@
 // COSMEON FS-LITE — Arcjet Security Configuration
 // ============================================
 
-import arcjet, { shield, detectBot, tokenBucket } from "@arcjet/next";
+import arcjet, { detectBot, shield, tokenBucket } from "@arcjet/next";
 
 // ── Shared Arcjet client ──────────────────────
 

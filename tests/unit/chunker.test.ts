@@ -2,11 +2,11 @@
 // Unit Tests — Chunker
 // ============================================
 
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
-  splitFileFixed,
-  splitFileCDC,
   splitFile,
+  splitFileCDC,
+  splitFileFixed,
 } from "../../src/lib/fs-lite/chunker";
 
 describe("splitFileFixed", () => {

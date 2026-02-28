@@ -56,7 +56,7 @@ function rollingHash(buf: Buffer, start: number, windowSize: number): number {
   let h = 0;
   const end = Math.min(start + windowSize, buf.length);
   for (let i = start; i < end; i++) {
-    h = ((h * 31) + buf[i]) >>> 0; // keep 32-bit unsigned
+    h = (h * 31 + buf[i]) >>> 0; // keep 32-bit unsigned
   }
   return h;
 }

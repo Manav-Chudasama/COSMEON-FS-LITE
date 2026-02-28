@@ -2,132 +2,118 @@
 // COSMEON FS-LITE — Engine Barrel Export
 // ============================================
 
-// ── Types ─────────────────────────────────────
-export type {
-  FSFile,
-  FSChunk,
-  FSNode,
-  FSLogEntry,
-  FSConfig,
-  NodeStatus,
-  DistributionStrategy,
-  ChunkingStrategy,
-  LatencyMode,
-  StorageMode,
-  LogEventType,
-  IntegrityReport,
-  RebalanceReport,
-  CacheStats,
-  SystemStats,
-  UploadResult,
-} from "./types";
-
-export { DEFAULT_CONFIG } from "./types";
-
-// ── Database ──────────────────────────────────
-export { connectDB, isDBConnected, FileModel, NodeModel } from "./db";
-
-// ── Core Modules ──────────────────────────────
-export {
-  splitFile,
-  splitFileFixed,
-  splitFileCDC,
-  computeFileChecksum,
-  reassembleFile,
-  extractChunkData,
-} from "./chunker";
-
-export {
-  computeHash,
-  verifyChunk,
-  verifyFile,
-  scanAllFiles,
-  startIntegrityScanner,
-  stopIntegrityScanner,
-} from "./integrity";
-
-export {
-  initializeNodes,
-  createNode,
-  setNodeStatus,
-  getNodes,
-  getOnlineNodes,
-  getNode,
-  updateNodeUsage,
-  hasCapacity,
-} from "./node-manager";
-
-export {
-  initMetadataStore,
-  addFile,
-  getFile,
-  listFiles,
-  deleteFile,
-  updateFileChunks,
-  getFilesOnNode,
-} from "./metadata-store";
-
-export { distributeChunks } from "./distributor";
-export { replicateChunks, replicateChunkToNode } from "./replicator";
-export {
-  rebalanceOnFailure,
-  rebalanceOnRecovery,
-  type RebalanceProgressCallback,
-} from "./rebalancer";
-
-// ── Latency Injector ─────────────────────────────────
-export { simulateLatency } from "./simulate-latency";
-
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";
+// ── Core Modules ──────────────────────────────
+export {
+  computeFileChecksum,
+  extractChunkData,
+  reassembleFile,
+  splitFile,
+  splitFileCDC,
+  splitFileFixed,
+} from "./chunker";
 
-// ── Storage Client ────────────────────────────
-export { storageClient } from "./storage-client";
-
-// ── Logger ────────────────────────────────────
-export { fsLogger } from "./logger";
-
+// ── Database ──────────────────────────────────
+export { connectDB, FileModel, isDBConnected, NodeModel } from "./db";
+export { distributeChunks } from "./distributor";
 // ── Docker Control ────────────────────────────
 export {
-  stopNodeContainer,
-  startNodeContainer,
-  isNodeContainerRunning,
   isDockerMode,
+  isNodeContainerRunning,
+  startNodeContainer,
+  stopNodeContainer,
 } from "./docker-control";
-
+// ── Erasure Coding ───────────────────────────
+export {
+  createParityChunkMetadata,
+  decodeDataShards,
+  type ErasureGroup,
+  encodeParityShards,
+  getErasureConfig,
+  getErasureGroups,
+  isErasureCodingEnabled,
+  setErasureCodingEnabled,
+} from "./erasure-coding";
 // ── Fault Tolerance ──────────────────────────
 export {
   computeFaultToleranceScore,
-  type FaultToleranceResult,
   type FaultToleranceBreakdown,
+  type FaultToleranceResult,
 } from "./fault-tolerance";
-
-// ── Erasure Coding ───────────────────────────
 export {
-  isErasureCodingEnabled,
-  setErasureCodingEnabled,
-  getErasureConfig,
-  encodeParityShards,
-  decodeDataShards,
-  getErasureGroups,
-  createParityChunkMetadata,
-  type ErasureGroup,
-} from "./erasure-coding";
-
+  computeHash,
+  scanAllFiles,
+  startIntegrityScanner,
+  stopIntegrityScanner,
+  verifyChunk,
+  verifyFile,
+} from "./integrity";
+// ── Logger ────────────────────────────────────
+export { fsLogger } from "./logger";
 // ── Merkle Tree ──────────────────────────────
 export {
   buildMerkleTree,
-  verifyMerkleRoot,
   findCorruptedChunks,
   type MerkleTraversalStep,
+  verifyMerkleRoot,
 } from "./merkle-tree";
+export {
+  addFile,
+  deleteFile,
+  getFile,
+  getFilesOnNode,
+  initMetadataStore,
+  listFiles,
+  updateFileChunks,
+} from "./metadata-store";
+export {
+  createNode,
+  getNode,
+  getNodes,
+  getOnlineNodes,
+  hasCapacity,
+  initializeNodes,
+  setNodeStatus,
+  updateNodeUsage,
+} from "./node-manager";
+export {
+  type RebalanceProgressCallback,
+  rebalanceOnFailure,
+  rebalanceOnRecovery,
+} from "./rebalancer";
+export { replicateChunks, replicateChunkToNode } from "./replicator";
+// ── Latency Injector ─────────────────────────────────
+export { simulateLatency } from "./simulate-latency";
+// ── Storage Client ────────────────────────────
+export { storageClient } from "./storage-client";
+// ── Types ─────────────────────────────────────
+export type {
+  CacheStats,
+  ChunkingStrategy,
+  DistributionStrategy,
+  FSChunk,
+  FSConfig,
+  FSFile,
+  FSLogEntry,
+  FSNode,
+  IntegrityReport,
+  LatencyMode,
+  LogEventType,
+  NodeStatus,
+  RebalanceReport,
+  StorageMode,
+  SystemStats,
+  UploadResult,
+} from "./types";
+export { DEFAULT_CONFIG } from "./types";
 
 // ── Initialization ────────────────────────────
 import { connectDB } from "./db";
-import { initializeNodes } from "./node-manager";
-import { initMetadataStore } from "./metadata-store";
-import { fsLogger } from "./logger";
 import { startIntegrityScanner } from "./integrity";
+import { fsLogger } from "./logger";
+import { initMetadataStore } from "./metadata-store";
+import { initializeNodes } from "./node-manager";
 
 let engineInitialized = false;
 

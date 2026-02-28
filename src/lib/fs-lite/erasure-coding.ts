@@ -15,10 +15,10 @@
 //   - 2 missing data: solve using both P1 and P2
 // ============================================
 
-import { v4 as uuidv4 } from "uuid";
 import { createHash } from "node:crypto";
-import { DEFAULT_CONFIG } from "./types";
+import { v4 as uuidv4 } from "uuid";
 import type { FSChunk } from "./types";
+import { DEFAULT_CONFIG } from "./types";
 
 // ── Runtime state ──
 let erasureCodingEnabled = DEFAULT_CONFIG.erasureCoding.enabled;
@@ -169,7 +169,7 @@ export function decodeDataShards(
   }
 
   const maxLen = Math.max(
-    ...shards.filter((s) => s !== null).map((s) => s!.length),
+    ...shards.filter((s) => s !== null).map((s) => s?.length),
     ...parityShards.map((p) => p.length),
   );
 

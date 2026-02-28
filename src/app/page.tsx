@@ -1,16 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { motion } from "motion/react";
-import dynamic from "next/dynamic";
 import {
-  Rocket,
-  Layers,
-  Shield,
   Activity,
   Database,
+  Layers,
+  Rocket,
   Satellite,
+  Shield,
 } from "lucide-react";
+import { motion } from "motion/react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const Orb = dynamic(() => import("@/components/Orb"), { ssr: false });

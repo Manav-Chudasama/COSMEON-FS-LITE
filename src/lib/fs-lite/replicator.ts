@@ -2,12 +2,11 @@
 // COSMEON FS-LITE — Chunk Replicator
 // ============================================
 
+import { fsLogger } from "./logger";
+import { getOnlineNodes, hasCapacity, simulateLatency } from "./node-manager";
+import { storageClient } from "./storage-client";
 import type { FSChunk } from "./types";
 import { DEFAULT_CONFIG } from "./types";
-import { getOnlineNodes, simulateLatency } from "./node-manager";
-import { hasCapacity } from "./node-manager";
-import { fsLogger } from "./logger";
-import { storageClient } from "./storage-client";
 
 /**
  * Replicate chunks across nodes for fault tolerance.
@@ -110,9 +109,7 @@ export async function replicateChunkToNode(
       try {
         data = await storageClient.readChunk(nodeId, chunk.chunkId);
         break;
-      } catch {
-        continue;
-      }
+      } catch {}
     }
 
     if (!data) {

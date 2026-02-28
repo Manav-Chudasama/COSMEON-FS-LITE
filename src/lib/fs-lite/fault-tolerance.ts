@@ -11,11 +11,11 @@
 //   15% — Distribution Balance (chunk spread evenness)
 // ============================================
 
-import { getNodes, getOnlineNodes } from "./node-manager";
-import { listFiles } from "./metadata-store";
+import { getErasureConfig, isErasureCodingEnabled } from "./erasure-coding";
 import { fsLogger } from "./logger";
+import { listFiles } from "./metadata-store";
+import { getNodes, getOnlineNodes } from "./node-manager";
 import { DEFAULT_CONFIG } from "./types";
-import { isErasureCodingEnabled, getErasureConfig } from "./erasure-coding";
 
 export interface FaultToleranceBreakdown {
   nodeScore: number;
@@ -46,7 +46,7 @@ export interface FaultToleranceResult {
 export async function computeFaultToleranceScore(): Promise<FaultToleranceResult> {
   const allNodes = getNodes();
   const onlineNodes = getOnlineNodes();
-  const files = await listFiles();
+  const _files = await listFiles();
 
   // ── Step 1: Node Health Score (40%) ──
   const totalNodes = allNodes.length || 1;

@@ -190,7 +190,7 @@ export async function initializeNodes(
       initialized = true;
       return;
     }
-  } catch (error) {
+  } catch (_error) {
     // MongoDB not available, continue with in-memory only
     if (nodesCache.size > 0) {
       initialized = true;

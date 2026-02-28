@@ -2,18 +2,17 @@
 // COSMEON FS-LITE — Automatic Rebalancer
 // ============================================
 
-import type { FSChunk, RebalanceReport } from "./types";
-import { DEFAULT_CONFIG } from "./types";
+import { fsLogger } from "./logger";
+import { getFilesOnNode, updateFileChunks } from "./metadata-store";
 import {
-  getNodes,
-  getOnlineNodes,
   getNode,
+  getOnlineNodes,
   hasCapacity,
   updateNodeUsage,
 } from "./node-manager";
-import { getFilesOnNode, listFiles, updateFileChunks } from "./metadata-store";
 import { replicateChunkToNode } from "./replicator";
-import { fsLogger } from "./logger";
+import type { FSChunk, RebalanceReport } from "./types";
+import { DEFAULT_CONFIG } from "./types";
 
 // ── Callback type for streaming progress events ───
 export type RebalanceProgressCallback = (event: {
@@ -109,7 +108,7 @@ export async function rebalanceOnFailure(
 
             // Re-replicate to the target for extra safety
             const tNode = getNode(targetNode.nodeId);
-            const tName = tNode?.name || targetNode.nodeId;
+            const _tName = tNode?.name || targetNode.nodeId;
             const success = await replicateChunkToNode(
               { ...chunk, nodeId: newPrimaryNodeId },
               targetNode.nodeId,

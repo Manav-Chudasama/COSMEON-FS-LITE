@@ -3,11 +3,11 @@
 // ============================================
 
 import { createHash } from "node:crypto";
-import type { FSFile, IntegrityReport } from "./types";
-import { DEFAULT_CONFIG } from "./types";
 import { fsLogger } from "./logger";
 import { listFiles } from "./metadata-store";
 import { storageClient } from "./storage-client";
+import type { FSFile, IntegrityReport } from "./types";
+import { DEFAULT_CONFIG } from "./types";
 
 /**
  * Compute SHA-256 hash of a buffer.
@@ -108,7 +108,7 @@ let isScanning = false;
  * Logs INTEGRITY_ALERT for every file that has corrupted or missing chunks.
  */
 export async function scanAllFiles(
-  dataDir: string = DEFAULT_CONFIG.dataDir,
+  _dataDir: string = DEFAULT_CONFIG.dataDir,
 ): Promise<{ scannedFiles: number; alertedFiles: number }> {
   if (isScanning) {
     return { scannedFiles: 0, alertedFiles: 0 };

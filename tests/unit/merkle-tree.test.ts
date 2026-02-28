@@ -2,13 +2,13 @@
 // Unit Tests — Merkle Tree
 // ============================================
 
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
 import {
   buildMerkleTree,
-  verifyMerkleRoot,
   findCorruptedChunks,
+  verifyMerkleRoot,
 } from "../../src/lib/fs-lite/merkle-tree";
-import { createHash } from "node:crypto";
 
 /** Generate a deterministic hash string for test data. */
 function testHash(data: string): string {

@@ -5,8 +5,8 @@
 // ============================================
 
 import { NextResponse } from "next/server";
-import { DEFAULT_CONFIG } from "@/lib/fs-lite";
 import type { LatencyMode } from "@/lib/fs-lite";
+import { DEFAULT_CONFIG } from "@/lib/fs-lite";
 
 /** GET -- return the current latency mode */
 export function GET() {
@@ -36,6 +36,9 @@ export async function PATCH(request: Request) {
       highDelayMs: DEFAULT_CONFIG.latency.highDelayMs,
     });
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 }

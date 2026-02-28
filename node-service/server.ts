@@ -7,11 +7,11 @@
 
 import {
   mkdir,
-  readFile,
-  writeFile,
-  unlink,
   readdir,
+  readFile,
   stat,
+  unlink,
+  writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -22,7 +22,7 @@ const NODE_NAME = process.env.NODE_NAME || "unknown";
 // Ensure data directory exists on startup
 await mkdir(DATA_DIR, { recursive: true });
 
-const server = Bun.serve({
+const _server = Bun.serve({
   port: PORT,
   async fetch(req: Request) {
     const url = new URL(req.url);

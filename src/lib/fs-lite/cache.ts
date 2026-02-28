@@ -2,9 +2,9 @@
 // COSMEON FS-LITE — LRU Chunk Cache
 // ============================================
 
+import { fsLogger } from "./logger";
 import type { CacheStats } from "./types";
 import { DEFAULT_CONFIG } from "./types";
-import { fsLogger } from "./logger";
 
 interface CacheEntry {
   chunkId: string;

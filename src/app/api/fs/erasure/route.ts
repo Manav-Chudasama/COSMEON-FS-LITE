@@ -2,12 +2,11 @@
 // GET/POST /api/fs/erasure — Get/Set erasure coding mode
 // ============================================
 
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import {
-  initEngine,
-  isErasureCodingEnabled,
-  setErasureCodingEnabled,
   getErasureConfig,
+  initEngine,
+  setErasureCodingEnabled,
 } from "@/lib/fs-lite";
 
 export const dynamic = "force-dynamic";

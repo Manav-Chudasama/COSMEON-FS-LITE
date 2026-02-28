@@ -5,17 +5,17 @@
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
+import type { NodeStatus } from "@/lib/fs-lite";
 import {
-  initEngine,
-  setNodeStatus,
   getNode,
+  initEngine,
+  isDockerMode,
   rebalanceOnFailure,
   rebalanceOnRecovery,
-  stopNodeContainer,
+  setNodeStatus,
   startNodeContainer,
-  isDockerMode,
+  stopNodeContainer,
 } from "@/lib/fs-lite";
-import type { NodeStatus } from "@/lib/fs-lite";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +56,7 @@ export async function POST(
     const stream = new ReadableStream({
       async start(controller) {
         const emit = (data: Record<string, unknown>) => {
-          controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+          controller.enqueue(encoder.encode(`${JSON.stringify(data)}\n`));
         };
 
         try {

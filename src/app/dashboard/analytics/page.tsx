@@ -1,29 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  Cell,
-  RadialBarChart,
-  RadialBar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
-import {
-  Shield,
   Activity,
   HardDrive,
   Layers,
-  Zap,
   RefreshCw,
+  Shield,
+  Zap,
 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  RadialBar,
+  RadialBarChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -31,17 +33,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
+  type ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-  type ChartConfig,
+  ChartTooltip,
+  ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Progress } from "@/components/ui/progress";
 
 // ── Types ──
 interface FaultToleranceData {
@@ -122,7 +122,7 @@ function formatBytes(bytes: number): string {
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
 // ── Chart configs ──
@@ -273,7 +273,7 @@ export default function AnalyticsPage() {
   }));
 
   // Cache radial data
-  const cacheTotal = Math.max(
+  const _cacheTotal = Math.max(
     1,
     cacheStats.hits + cacheStats.misses + cacheStats.evictions,
   );
@@ -732,7 +732,7 @@ export default function AnalyticsPage() {
                     fill="var(--color-chunks)"
                     radius={[4, 4, 0, 0]}
                   >
-                    {chunkData.map((entry, i) => (
+                    {chunkData.map((entry, _i) => (
                       <Cell
                         key={entry.name}
                         fill={

@@ -6,20 +6,20 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import {
-  initEngine,
-  getFile,
-  getNode,
-  reassembleFile,
   chunkCache,
   computeHash,
   DEFAULT_CONFIG,
   fsLogger,
+  getFile,
+  getNode,
+  initEngine,
+  reassembleFile,
   storageClient,
 } from "@/lib/fs-lite";
 import { simulateLatency } from "@/lib/fs-lite/simulate-latency";
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   try {
@@ -41,7 +41,7 @@ export async function POST(
     const stream = new ReadableStream({
       async start(controller) {
         const emit = (data: Record<string, unknown>) => {
-          controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+          controller.enqueue(encoder.encode(`${JSON.stringify(data)}\n`));
         };
 
         try {
@@ -101,9 +101,7 @@ export async function POST(
 
                 usedNodeId = nodeId;
                 break;
-              } catch {
-                continue;
-              }
+              } catch {}
             }
 
             if (!data) {

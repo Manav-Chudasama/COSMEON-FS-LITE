@@ -1,10 +1,10 @@
-import type React from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/sonner";
+import type React from "react";
 import ClientCursor from "@/components/ClientCursor";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -26,7 +26,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning className={`${ibmPlexMono.variable} font-mono antialiased`}>
+      <body
+        suppressHydrationWarning
+        className={`${ibmPlexMono.variable} font-mono antialiased`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

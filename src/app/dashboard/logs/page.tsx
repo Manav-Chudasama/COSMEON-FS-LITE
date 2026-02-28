@@ -1,25 +1,25 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
-  RefreshCw,
-  Upload,
-  Download,
-  Trash2,
-  Satellite,
-  ShieldCheck,
-  ShieldAlert,
-  Layers,
   Activity,
   Database,
+  Download,
+  Layers,
+  RefreshCw,
+  Satellite,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  Upload,
   Zap,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { FSLogEntry, LogEventType } from "@/lib/fs-lite/types";
+import type { FSLogEntry } from "@/lib/fs-lite/types";
 
 const typeIcons: Record<string, React.ElementType> = {
   FILE_UPLOAD: Upload,

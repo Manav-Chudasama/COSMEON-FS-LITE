@@ -1,31 +1,31 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
+  BarChart3,
   Files,
+  LayoutDashboard,
+  Moon,
   Satellite,
   ScrollText,
-  BarChart3,
-  Moon,
   Sun,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 
 const navItems = [
   {

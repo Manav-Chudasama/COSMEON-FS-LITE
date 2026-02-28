@@ -4,16 +4,16 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import {
-  initEngine,
-  getFile,
-  reassembleFile,
-  simulateLatency,
   chunkCache,
   computeHash,
-  fsLogger,
-  storageClient,
-  getErasureGroups,
   decodeDataShards,
+  fsLogger,
+  getErasureGroups,
+  getFile,
+  initEngine,
+  reassembleFile,
+  simulateLatency,
+  storageClient,
 } from "@/lib/fs-lite";
 import { consumeDownload } from "@/lib/fs-lite/download-store";
 
@@ -86,9 +86,7 @@ export async function GET(
           }
 
           break;
-        } catch {
-          continue;
-        }
+        } catch {}
       }
 
       if (data) {

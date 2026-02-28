@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "motion/react";
 import {
+  Activity,
   Files,
+  Gauge,
+  HardDrive,
   Layers,
   Satellite,
-  HardDrive,
-  Activity,
-  Gauge,
 } from "lucide-react";
+import { motion } from "motion/react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SystemStats } from "@/lib/fs-lite/types";
 

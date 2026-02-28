@@ -1,21 +1,20 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
-  Satellite,
+  Clock,
+  HardDrive,
+  Plus,
   Power,
   PowerOff,
-  HardDrive,
-  Clock,
-  Plus,
+  Satellite,
   Shield,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
 import type { FSNode, NodeStatus } from "@/lib/fs-lite/types";
 
 function formatBytes(bytes: number): string {

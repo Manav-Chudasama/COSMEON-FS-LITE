@@ -6,11 +6,7 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": [
-      "bun"
-    ]
+    "types": ["bun"]
   },
-  "include": [
-    "server.ts"
-  ]
+  "include": ["server.ts"]
 }

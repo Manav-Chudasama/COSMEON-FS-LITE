@@ -5,18 +5,18 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import {
-  initEngine,
-  getFile,
-  computeHash,
-  storageClient,
-  findCorruptedChunks,
   buildMerkleTree,
+  computeHash,
+  findCorruptedChunks,
+  getFile,
+  initEngine,
+  storageClient,
 } from "@/lib/fs-lite";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   try {
@@ -33,7 +33,7 @@ export async function GET(
     const stream = new ReadableStream({
       async start(controller) {
         const emit = (data: Record<string, unknown>) => {
-          controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+          controller.enqueue(encoder.encode(`${JSON.stringify(data)}\n`));
         };
 
         try {
@@ -144,8 +144,8 @@ export async function GET(
                 ? "✓ Root hash matches — file is intact!"
                 : "✗ Root hash MISMATCH — scanning tree for corrupted chunks...",
               match: rootMatch,
-              storedRoot: file.merkleRoot!.slice(0, 16) + "...",
-              currentRoot: currentTree.root.slice(0, 16) + "...",
+              storedRoot: `${file.merkleRoot?.slice(0, 16)}...`,
+              currentRoot: `${currentTree.root.slice(0, 16)}...`,
             });
 
             let corruptedIndices: number[] = [];
@@ -159,7 +159,7 @@ export async function GET(
               });
 
               const result = findCorruptedChunks(
-                file.merkleTree!,
+                file.merkleTree ?? [],
                 currentHashes,
                 totalChunks,
               );

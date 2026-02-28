@@ -2,10 +2,10 @@
 // COSMEON FS-LITE -- Chunk Distributor
 // ============================================
 
-import type { FSChunk, FSNode, DistributionStrategy } from "./types";
-import { DEFAULT_CONFIG } from "./types";
-import { hasCapacity } from "./node-manager";
 import { fsLogger } from "./logger";
+import { hasCapacity } from "./node-manager";
+import type { DistributionStrategy, FSChunk, FSNode } from "./types";
+import { DEFAULT_CONFIG } from "./types";
 
 /**
  * Distribute chunks across available online nodes.
@@ -179,7 +179,7 @@ function distributeCRUSH(
           `${chunk.fileId}:${chunk.index}:${node.nodeId}`,
         );
         const weight = node.capacityBytes / totalCapacity;
-        const score = Math.pow(normalized, 1 / weight);
+        const score = normalized ** (1 / weight);
         return { node, score };
       })
       .sort((a, b) => b.score - a.score);

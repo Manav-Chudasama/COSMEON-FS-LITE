@@ -10,10 +10,10 @@
 // without any other file needing to know the difference.
 // ============================================
 
-import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { DEFAULT_CONFIG } from "./types";
 import { getNode } from "./node-manager";
+import { DEFAULT_CONFIG } from "./types";
 
 /**
  * Resolve the storage mode from environment or config.

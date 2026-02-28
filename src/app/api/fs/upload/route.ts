@@ -4,34 +4,32 @@
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
-import {
-  initEngine,
-  splitFile,
-  computeFileChecksum,
-  distributeChunks,
-  replicateChunks,
-  getOnlineNodes,
-  updateNodeUsage,
-  addFile,
-  simulateLatency,
-  DEFAULT_CONFIG,
-  storageClient,
-} from "@/lib/fs-lite";
+import { v4 as groupUuidv4, v4 as uuidv4 } from "uuid";
 import type {
-  FSFile,
-  FSChunk,
-  UploadResult,
   ChunkingStrategy,
+  DistributionStrategy,
+  FSChunk,
+  FSFile,
+  UploadResult,
 } from "@/lib/fs-lite";
 import {
-  isErasureCodingEnabled,
-  encodeParityShards,
-  createParityChunkMetadata,
-  getErasureConfig,
+  addFile,
   buildMerkleTree,
+  computeFileChecksum,
+  createParityChunkMetadata,
+  DEFAULT_CONFIG,
+  distributeChunks,
+  encodeParityShards,
+  getErasureConfig,
+  getOnlineNodes,
+  initEngine,
+  isErasureCodingEnabled,
+  replicateChunks,
+  simulateLatency,
+  splitFile,
+  storageClient,
+  updateNodeUsage,
 } from "@/lib/fs-lite";
-import { v4 as groupUuidv4 } from "uuid";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +39,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const strategy =
-      (formData.get("strategy") as any) || DEFAULT_CONFIG.distributionStrategy;
+      (formData.get("strategy") as DistributionStrategy | null) ||
+      DEFAULT_CONFIG.distributionStrategy;
     const chunkingStrategy =
       (formData.get("chunkingStrategy") as ChunkingStrategy | null) ??
       DEFAULT_CONFIG.chunking.strategy;
@@ -66,7 +65,7 @@ export async function POST(request: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         const emit = (data: Record<string, unknown>) => {
-          controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+          controller.enqueue(encoder.encode(`${JSON.stringify(data)}\n`));
         };
 
         try {

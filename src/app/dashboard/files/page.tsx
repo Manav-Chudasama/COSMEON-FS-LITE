@@ -1,18 +1,35 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import { motion, AnimatePresence } from "motion/react";
 import {
-  Upload,
   Download,
-  Trash2,
-  ShieldCheck,
   FileIcon,
   Gauge,
+  ShieldCheck,
+  Trash2,
+  Upload,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -21,23 +38,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
 import type { FSFile } from "@/lib/fs-lite/types";
 
 function formatBytes(bytes: number): string {
@@ -177,7 +177,9 @@ export default function FilesPage() {
                 total: event.totalChunks as number,
               }));
             } else if (event.stage === "complete") {
-              const result = event.result as any;
+              const result = event.result as {
+                file: { originalName: string; chunkCount: number };
+              };
               toast.success(`"${result.file.originalName}" uploaded`, {
                 description: `${result.file.chunkCount} chunks distributed across nodes`,
               });
@@ -364,7 +366,7 @@ export default function FilesPage() {
     if (uploadStage === "complete" || uploadStage === doneStages[stage])
       return "done";
     if (stageIndex < currentIndex) return "done";
-    if (uploadStage === stage || uploadStage === stage + "_done")
+    if (uploadStage === stage || uploadStage === `${stage}_done`)
       return "active";
     return "pending";
   };
@@ -400,7 +402,7 @@ export default function FilesPage() {
     if (stageIndex < currentIndex) return "done";
     if (
       downloadStage === stage ||
-      downloadStage === stage + "_done" ||
+      downloadStage === `${stage}_done` ||
       downloadStage === doneMap[stage]
     )
       return "active";

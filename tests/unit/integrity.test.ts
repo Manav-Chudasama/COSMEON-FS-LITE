@@ -2,7 +2,7 @@
 // Unit Tests — Integrity (Hash & Verify)
 // ============================================
 
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { computeHash, verifyChunk } from "../../src/lib/fs-lite/integrity";
 
 describe("computeHash", () => {

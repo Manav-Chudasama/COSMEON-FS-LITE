@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback, useMemo } from "react";
 import { gsap } from "gsap";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 export interface TargetCursorProps {
   targetSelector?: string;
@@ -109,8 +110,10 @@ const TargetCursor: React.FC<TargetCursorProps> = ({
       corners.forEach((corner, i) => {
         const currentX = gsap.getProperty(corner, "x") as number;
         const currentY = gsap.getProperty(corner, "y") as number;
-        const targetX = targetCornerPositionsRef.current![i].x - cursorX;
-        const targetY = targetCornerPositionsRef.current![i].y - cursorY;
+        const targetX =
+          (targetCornerPositionsRef.current?.[i]?.x ?? 0) - cursorX;
+        const targetY =
+          (targetCornerPositionsRef.current?.[i]?.y ?? 0) - cursorY;
         const finalX = currentX + (targetX - currentX) * strength;
         const finalY = currentY + (targetY - currentY) * strength;
         const duration = strength >= 0.99 ? (parallaxOn ? 0.2 : 0) : 0.05;
@@ -173,7 +176,9 @@ const TargetCursor: React.FC<TargetCursorProps> = ({
 
       activeTarget = target;
       const corners = Array.from(cornersRef.current);
-      corners.forEach((corner) => gsap.killTweensOf(corner));
+      corners.forEach((corner) => {
+        gsap.killTweensOf(corner);
+      });
       gsap.killTweensOf(cursorRef.current, "rotation");
       spinTl.current?.pause();
       gsap.set(cursorRef.current, { rotation: 0 });
@@ -197,7 +202,7 @@ const TargetCursor: React.FC<TargetCursorProps> = ({
       ];
 
       isActiveRef.current = true;
-      gsap.ticker.add(tickerFnRef.current!);
+      if (tickerFnRef.current) gsap.ticker.add(tickerFnRef.current);
       gsap.to(activeStrengthRef.current, {
         current: 1,
         duration: hoverDuration,
@@ -206,15 +211,15 @@ const TargetCursor: React.FC<TargetCursorProps> = ({
 
       corners.forEach((corner, i) => {
         gsap.to(corner, {
-          x: targetCornerPositionsRef.current![i].x - cursorX,
-          y: targetCornerPositionsRef.current![i].y - cursorY,
+          x: (targetCornerPositionsRef.current?.[i]?.x ?? 0) - cursorX,
+          y: (targetCornerPositionsRef.current?.[i]?.y ?? 0) - cursorY,
           duration: 0.2,
           ease: "power2.out",
         });
       });
 
       const leaveHandler = () => {
-        gsap.ticker.remove(tickerFnRef.current!);
+        if (tickerFnRef.current) gsap.ticker.remove(tickerFnRef.current);
         isActiveRef.current = false;
         targetCornerPositionsRef.current = null;
         gsap.set(activeStrengthRef.current, { current: 0, overwrite: true });

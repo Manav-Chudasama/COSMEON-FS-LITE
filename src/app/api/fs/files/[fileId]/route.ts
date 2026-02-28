@@ -2,22 +2,22 @@
 // GET/DELETE /api/fs/files/[fileId] — File detail & deletion
 // ============================================
 
-import { type NextRequest, NextResponse } from "next/server";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { type NextRequest, NextResponse } from "next/server";
 import {
-  initEngine,
-  getFile,
-  deleteFile,
-  updateNodeUsage,
-  getNode,
   chunkCache,
   DEFAULT_CONFIG,
+  deleteFile,
+  getFile,
+  getNode,
+  initEngine,
+  updateNodeUsage,
 } from "@/lib/fs-lite";
 
 /** GET — File detail with chunk distribution */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   try {
@@ -60,7 +60,7 @@ export async function GET(
 
 /** DELETE — Delete file and all chunks */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   try {
