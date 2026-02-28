@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Upload, Download, Trash2, ShieldCheck, FileIcon } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -86,6 +88,7 @@ export default function FilesPage() {
   const [downloadEvents, setDownloadEvents] = useState<
     { message: string; stage: string }[]
   >([]);
+  const [dlSimulateLatency, setDlSimulateLatency] = useState(true);
 
   const fetchFiles = useCallback(() => {
     fetch("/api/fs/files")
@@ -213,6 +216,8 @@ export default function FilesPage() {
     try {
       const res = await fetch(`/api/fs/download/${fileId}/progress`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ simulateLatency: dlSimulateLatency }),
       });
 
       if (!res.ok || !res.body) {
@@ -252,20 +257,21 @@ export default function FilesPage() {
                 total: event.totalChunks as number,
               }));
             } else if (event.stage === "complete") {
-              // Trigger binary download with token
-              const token = event.token as string;
-              const binaryRes = await fetch(
-                `/api/fs/download/${fileId}?token=${token}`,
-              );
-              if (binaryRes.ok) {
-                const blob = await binaryRes.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = fileName;
-                a.click();
-                URL.revokeObjectURL(url);
-              }
+              // Decode base64 directly into a Blob — no second request
+              const base64 = event.fileData as string;
+              const mimeType =
+                (event.mimeType as string) || "application/octet-stream";
+              const binary = atob(base64);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++)
+                bytes[i] = binary.charCodeAt(i);
+              const blob = new Blob([bytes], { type: mimeType });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = fileName;
+              a.click();
+              URL.revokeObjectURL(url);
               toast.success(`"${fileName}" downloaded`);
               setTimeout(() => {
                 setDownloadOpen(false);
@@ -602,6 +608,22 @@ export default function FilesPage() {
                 Downloading &quot;{downloadFileName}&quot;
               </DialogTitle>
             </DialogHeader>
+
+            {/* Latency toggle */}
+            <div className="flex items-center justify-between rounded-md border px-3 py-2">
+              <Label
+                htmlFor="dl-latency"
+                className="text-xs text-muted-foreground"
+              >
+                Simulate Node Latency
+              </Label>
+              <Switch
+                id="dl-latency"
+                checked={dlSimulateLatency}
+                onCheckedChange={setDlSimulateLatency}
+                disabled={downloading}
+              />
+            </div>
             <div className="mt-2 space-y-4">
               {/* Stage stepper */}
               <div className="space-y-2">

@@ -7,19 +7,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { v4 as uuidv4 } from "uuid";
 import {
   initEngine,
   getFile,
   getNode,
   reassembleFile,
-  simulateLatency,
+  simulateLatency as applyLatency,
   chunkCache,
   computeHash,
   DEFAULT_CONFIG,
   fsLogger,
 } from "@/lib/fs-lite";
-import { storeDownload } from "@/lib/fs-lite/download-store";
 
 export async function POST(
   request: NextRequest,
@@ -32,6 +30,17 @@ export async function POST(
     const file = await getFile(fileId);
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    // Read options from POST body
+    let enableLatency = true;
+    try {
+      const body = await request.json();
+      if (typeof body.simulateLatency === "boolean") {
+        enableLatency = body.simulateLatency;
+      }
+    } catch {
+      // No body or invalid JSON — use defaults
     }
 
     const sortedChunks = [...file.chunks].sort((a, b) => a.index - b.index);
@@ -82,7 +91,9 @@ export async function POST(
 
             for (const nodeId of nodesToTry) {
               try {
-                await simulateLatency(nodeId);
+                await (enableLatency
+                  ? applyLatency(nodeId)
+                  : Promise.resolve());
                 const chunkPath = join(
                   process.cwd(),
                   DEFAULT_CONFIG.dataDir,
@@ -170,14 +181,14 @@ export async function POST(
             },
           );
 
-          // Store in temp download store
-          const token = uuidv4();
-          storeDownload(token, fullFile, file.mimeType, file.originalName);
+          // Encode file as base64 for inline delivery
+          const fileBase64 = fullFile.toString("base64");
 
           emit({
             stage: "complete",
             message: "Ready to download",
-            token,
+            fileData: fileBase64,
+            mimeType: file.mimeType,
           });
         } catch (error) {
           emit({
