@@ -78,6 +78,9 @@ export {
 // ── Latency Injector ─────────────────────────────────
 export { simulateLatency as injectLatency } from "./simulate-latency";
 
+// ── Latency Injector ─────────────────────────────────
+export { simulateLatency as injectLatency } from "./simulate-latency";
+
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";
 
