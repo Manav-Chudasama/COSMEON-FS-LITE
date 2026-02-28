@@ -18,7 +18,7 @@ import {
   simulateLatency,
   DEFAULT_CONFIG,
 } from "@/lib/fs-lite";
-import type { FSFile, UploadResult } from "@/lib/fs-lite";
+import type { FSFile, FSChunk, UploadResult } from "@/lib/fs-lite";
 
 export async function POST(request: NextRequest) {
   try {

@@ -97,10 +97,12 @@ export async function initializeNodes(
   const defaultCapacities = [
     100 * 1024 * 1024, // 100 MB
     150 * 1024 * 1024, // 150 MB
-    80 * 1024 * 1024, //  80 MB
+    80 * 1024 * 1024,  //  80 MB
     200 * 1024 * 1024, // 200 MB
     120 * 1024 * 1024, // 120 MB
   ];
+  // Rack assignment: simulates 3 failure domains for CRUSH placement
+  const defaultRacks = ["rack-alpha", "rack-alpha", "rack-beta", "rack-beta", "rack-gamma"];
 
   for (let i = 0; i < count; i++) {
     const nodeId = uuidv4();
@@ -109,6 +111,7 @@ export async function initializeNodes(
       name: `ORBIT-${i + 1}`,
       status: "online",
       createdAt: new Date().toISOString(),
+      rackId: defaultRacks[i] || "rack-alpha",
       capacityBytes: defaultCapacities[i] || 100 * 1024 * 1024,
       usedBytes: 0,
       chunkCount: 0,

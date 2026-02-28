@@ -6,7 +6,7 @@
 export type NodeStatus = "online" | "offline" | "degraded";
 
 /** Distribution strategy for chunk assignment */
-export type DistributionStrategy = "round-robin" | "weighted";
+export type DistributionStrategy = "round-robin" | "weighted" | "crush";
 
 /** Types of events logged by the system */
 export type LogEventType =
@@ -72,6 +72,8 @@ export interface FSNode {
   name: string;
   status: NodeStatus;
   createdAt: string;
+  /** Rack / failure-domain identifier used by CRUSH placement */
+  rackId?: string;
   /** Max storage capacity in bytes */
   capacityBytes: number;
   /** Currently used storage in bytes */

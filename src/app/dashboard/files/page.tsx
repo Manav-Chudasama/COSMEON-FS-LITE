@@ -182,6 +182,9 @@ export default function FilesPage() {
                     <SelectItem value="weighted" className="text-xs">
                       Weighted (Load Balanced)
                     </SelectItem>
+                    <SelectItem value="crush" className="text-xs">
+                      CRUSH (Rack-Aware Hashing)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

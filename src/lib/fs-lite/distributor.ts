@@ -1,5 +1,5 @@
 // ============================================
-// COSMEON FS-LITE — Chunk Distributor
+// COSMEON FS-LITE -- Chunk Distributor
 // ============================================
 
 import type { FSChunk, FSNode, DistributionStrategy } from "./types";
@@ -27,7 +27,9 @@ export function distributeChunks(
   const assignedChunks: FSChunk[] =
     strategy === "weighted"
       ? distributeWeighted(chunks, nodes)
-      : distributeRoundRobin(chunks, nodes);
+      : strategy === "crush"
+        ? distributeCRUSH(chunks, nodes)
+        : distributeRoundRobin(chunks, nodes);
 
   fsLogger.log(
     "CHUNK_DISTRIBUTE",
@@ -128,6 +130,93 @@ function distributeWeighted(
       bestNode.nodeId,
       (tempUsage.get(bestNode.nodeId) || 0) + chunk.size,
     );
+  }
+
+  return result;
+}
+
+/**
+ * djb2 hash: deterministic float in [0, 1] from a string.
+ * Avoids node:crypto so the bundler can statically analyse this module.
+ */
+function hashToFloat(input: string): number {
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) {
+    h = (((h << 5) + h) ^ input.charCodeAt(i)) >>> 0;
+  }
+  return h / 4294967295;
+}
+
+/**
+ * CRUSH -- Controlled Replication Under Scalable Hashing.
+ *
+ * For each chunk:
+ *  1. Score every eligible node via capacity-weighted rendezvous hashing.
+ *  2. Sort nodes by score descending.
+ *  3. Primary = highest scorer.
+ *  4. Replicas = next-highest scorers from different racks (failure domains).
+ *
+ * Properties:
+ *  - Deterministic: same inputs always produce the same placement.
+ *  - Capacity-weighted: larger nodes absorb proportionally more chunks.
+ *  - Rack-aware: replicas spread across failure domains.
+ *  - Minimal rebalancing: only affected chunks move when topology changes.
+ */
+function distributeCRUSH(
+  chunks: Omit<FSChunk, "nodeId" | "replicas">[],
+  nodes: FSNode[],
+): FSChunk[] {
+  const result: FSChunk[] = [];
+  const totalCapacity = nodes.reduce((sum, n) => sum + n.capacityBytes, 0);
+  const replicationFactor = DEFAULT_CONFIG.replicationFactor;
+
+  for (const chunk of chunks) {
+    // Score every node that has enough capacity
+    const scoredNodes = nodes
+      .filter((n) => hasCapacity(n.nodeId, chunk.size))
+      .map((node) => {
+        const normalized = hashToFloat(
+          `${chunk.fileId}:${chunk.index}:${node.nodeId}`,
+        );
+        const weight = node.capacityBytes / totalCapacity;
+        const score = Math.pow(normalized, 1 / weight);
+        return { node, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    if (scoredNodes.length === 0) {
+      // Fallback: use highest-capacity node
+      const fallback = nodes.reduce((a, b) =>
+        a.capacityBytes > b.capacityBytes ? a : b,
+      );
+      result.push({ ...chunk, nodeId: fallback.nodeId, replicas: [] });
+      continue;
+    }
+
+    const primary = scoredNodes[0].node;
+
+    // Select replicas from different racks for failure-domain isolation
+    const usedRacks = new Set<string>([primary.rackId ?? primary.nodeId]);
+    const replicas: string[] = [];
+
+    for (const { node } of scoredNodes.slice(1)) {
+      if (replicas.length >= replicationFactor - 1) break;
+      const rack = node.rackId ?? node.nodeId;
+      if (!usedRacks.has(rack)) {
+        replicas.push(node.nodeId);
+        usedRacks.add(rack);
+      }
+    }
+
+    // Fill remaining replica slots if not enough rack-diverse nodes exist
+    for (const { node } of scoredNodes.slice(1)) {
+      if (replicas.length >= replicationFactor - 1) break;
+      if (node.nodeId !== primary.nodeId && !replicas.includes(node.nodeId)) {
+        replicas.push(node.nodeId);
+      }
+    }
+
+    result.push({ ...chunk, nodeId: primary.nodeId, replicas });
   }
 
   return result;
