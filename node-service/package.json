@@ -1,0 +1,14 @@
+{
+  "name": "fs-lite-node-service",
+  "version": "1.0.0",
+  "description": "Lightweight storage node for COSMEON FS-LITE",
+  "main": "server.ts",
+  "scripts": {
+    "start": "bun run server.ts",
+    "dev": "bun --watch run server.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "^1.3.9"
+  }
+}

@@ -1,6 +1,7 @@
 // ============================================
 // POST /api/fs/nodes/[nodeId]/rebalance
 // Streams NDJSON progress events during node failure/recovery rebalancing.
+// In Docker mode, physically stops/starts the container before rebalancing.
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -10,6 +11,9 @@ import {
   getNode,
   rebalanceOnFailure,
   rebalanceOnRecovery,
+  stopNodeContainer,
+  startNodeContainer,
+  isDockerMode,
 } from "@/lib/fs-lite";
 import type { NodeStatus } from "@/lib/fs-lite";
 
@@ -56,6 +60,33 @@ export async function POST(
         };
 
         try {
+          // Step 0: In Docker mode, physically stop/start the container
+          if (isDockerMode()) {
+            if (status === "offline") {
+              emit({
+                stage: "docker_control",
+                message: `Stopping Docker container for "${currentNode.name}"...`,
+              });
+              await stopNodeContainer(currentNode.name);
+              emit({
+                stage: "docker_control",
+                message: `Docker container for "${currentNode.name}" has been stopped`,
+              });
+            } else if (status === "online") {
+              emit({
+                stage: "docker_control",
+                message: `Starting Docker container for "${currentNode.name}"...`,
+              });
+              await startNodeContainer(currentNode.name);
+              // Give the container a moment to boot up
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              emit({
+                stage: "docker_control",
+                message: `Docker container for "${currentNode.name}" is now running`,
+              });
+            }
+          }
+
           // Step 1: Update node status
           const updatedNode = await setNodeStatus(nodeId, status);
           const nodeName = updatedNode?.name || nodeId;
@@ -71,20 +102,16 @@ export async function POST(
 
           // Step 2: Rebalance with progress callbacks
           if (status === "offline" && previousStatus !== "offline") {
-            const report = await rebalanceOnFailure(
-              nodeId,
-              undefined,
-              (event) => emit(event),
+            const report = await rebalanceOnFailure(nodeId, (event) =>
+              emit(event),
             );
             emit({
               stage: "report",
               report,
             });
           } else if (status === "online" && previousStatus === "offline") {
-            const report = await rebalanceOnRecovery(
-              nodeId,
-              undefined,
-              (event) => emit(event),
+            const report = await rebalanceOnRecovery(nodeId, (event) =>
+              emit(event),
             );
             emit({
               stage: "report",

@@ -2,13 +2,12 @@
 // COSMEON FS-LITE — Chunk Replicator
 // ============================================
 
-import { copyFile, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import type { FSChunk, FSNode } from "./types";
+import type { FSChunk } from "./types";
 import { DEFAULT_CONFIG } from "./types";
 import { getOnlineNodes, simulateLatency } from "./node-manager";
 import { hasCapacity } from "./node-manager";
 import { fsLogger } from "./logger";
+import { storageClient } from "./storage-client";
 
 /**
  * Replicate chunks across nodes for fault tolerance.
@@ -21,7 +20,6 @@ import { fsLogger } from "./logger";
 export async function replicateChunks(
   chunks: FSChunk[],
   replicationFactor: number = DEFAULT_CONFIG.replicationFactor,
-  dataDir: string = DEFAULT_CONFIG.dataDir,
 ): Promise<FSChunk[]> {
   const onlineNodes = getOnlineNodes();
 
@@ -53,25 +51,15 @@ export async function replicateChunks(
       const targetNode = candidateNodes[i];
 
       try {
-        const sourcePath = join(
-          process.cwd(),
-          dataDir,
-          "nodes",
-          chunk.nodeId,
-          chunk.chunkId,
-        );
-        const targetPath = join(
-          process.cwd(),
-          dataDir,
-          "nodes",
-          targetNode.nodeId,
-          chunk.chunkId,
-        );
+        // Read chunk data from primary node
+        const data = await storageClient.readChunk(chunk.nodeId, chunk.chunkId);
 
         // Simulate network latency
         await simulateLatency(targetNode.nodeId);
 
-        await copyFile(sourcePath, targetPath);
+        // Write to target node
+        await storageClient.writeChunk(targetNode.nodeId, chunk.chunkId, data);
+
         replicas.push(targetNode.nodeId);
 
         fsLogger.log(
@@ -112,57 +100,27 @@ export async function replicateChunks(
 export async function replicateChunkToNode(
   chunk: FSChunk,
   targetNodeId: string,
-  dataDir: string = DEFAULT_CONFIG.dataDir,
 ): Promise<boolean> {
   try {
     // Try to read from primary node first
-    let sourceNodeId = chunk.nodeId;
-    let sourcePath = join(
-      process.cwd(),
-      dataDir,
-      "nodes",
-      sourceNodeId,
-      chunk.chunkId,
-    );
+    let data: Buffer | null = null;
+    const nodesToTry = [chunk.nodeId, ...chunk.replicas];
 
-    let data: Buffer;
-    try {
-      data = await readFile(sourcePath);
-    } catch {
-      // If primary fails, try replicas
-      let found = false;
-      for (const replicaNodeId of chunk.replicas) {
-        try {
-          sourcePath = join(
-            process.cwd(),
-            dataDir,
-            "nodes",
-            replicaNodeId,
-            chunk.chunkId,
-          );
-          data = await readFile(sourcePath);
-          sourceNodeId = replicaNodeId;
-          found = true;
-          break;
-        } catch {
-          continue;
-        }
-      }
-      if (!found) {
-        throw new Error("No available source for chunk");
+    for (const nodeId of nodesToTry) {
+      try {
+        data = await storageClient.readChunk(nodeId, chunk.chunkId);
+        break;
+      } catch {
+        continue;
       }
     }
 
-    const targetPath = join(
-      process.cwd(),
-      dataDir,
-      "nodes",
-      targetNodeId,
-      chunk.chunkId,
-    );
+    if (!data) {
+      throw new Error("No available source for chunk");
+    }
 
     await simulateLatency(targetNodeId);
-    await writeFile(targetPath, data!);
+    await storageClient.writeChunk(targetNodeId, chunk.chunkId, data);
 
     return true;
   } catch {

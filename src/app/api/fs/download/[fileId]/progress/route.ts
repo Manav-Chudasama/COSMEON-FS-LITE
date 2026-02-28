@@ -5,8 +5,6 @@
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   initEngine,
   getFile,
@@ -16,6 +14,7 @@ import {
   computeHash,
   DEFAULT_CONFIG,
   fsLogger,
+  storageClient,
 } from "@/lib/fs-lite";
 import { simulateLatency } from "@/lib/fs-lite/simulate-latency";
 
@@ -86,14 +85,7 @@ export async function POST(
               try {
                 // Inject global latency delay before each chunk read
                 await simulateLatency();
-                const chunkPath = join(
-                  process.cwd(),
-                  DEFAULT_CONFIG.dataDir,
-                  "nodes",
-                  nodeId,
-                  chunk.chunkId,
-                );
-                data = await readFile(chunkPath);
+                data = await storageClient.readChunk(nodeId, chunk.chunkId);
 
                 // Verify on-the-fly
                 const hash = computeHash(data);

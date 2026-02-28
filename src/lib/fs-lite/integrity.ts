@@ -3,12 +3,11 @@
 // ============================================
 
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { FSFile, IntegrityReport } from "./types";
 import { DEFAULT_CONFIG } from "./types";
 import { fsLogger } from "./logger";
 import { listFiles } from "./metadata-store";
+import { storageClient } from "./storage-client";
 
 /**
  * Compute SHA-256 hash of a buffer.
@@ -29,10 +28,7 @@ export function verifyChunk(data: Buffer, expectedHash: string): boolean {
  * Run a full integrity check on a file by reading all its
  * chunks from disk and verifying their hashes.
  */
-export async function verifyFile(
-  file: FSFile,
-  dataDir: string = DEFAULT_CONFIG.dataDir,
-): Promise<IntegrityReport> {
+export async function verifyFile(file: FSFile): Promise<IntegrityReport> {
   const results: IntegrityReport["results"] = [];
   let passedChunks = 0;
   let failedChunks = 0;
@@ -48,14 +44,7 @@ export async function verifyFile(
 
   for (const chunk of file.chunks) {
     try {
-      const chunkPath = join(
-        process.cwd(),
-        dataDir,
-        "nodes",
-        chunk.nodeId,
-        chunk.chunkId,
-      );
-      const data = await readFile(chunkPath);
+      const data = await storageClient.readChunk(chunk.nodeId, chunk.chunkId);
       const actualHash = computeHash(data);
       const passed = actualHash === chunk.hash;
 
@@ -141,7 +130,7 @@ export async function scanAllFiles(
       scannedFiles++;
 
       try {
-        const report = await verifyFile(file, dataDir);
+        const report = await verifyFile(file);
 
         if (report.failedChunks > 0) {
           alertedFiles++;

@@ -15,12 +15,14 @@ let nodesCache: Map<string, FSNode> = new Map();
 let initialized = false;
 
 /**
- * Ensure the data directory and node directories exist.
+ * Ensure the data directory and node directories exist (local mode only).
  */
 async function ensureNodeDir(
   nodeId: string,
   dataDir: string = DEFAULT_CONFIG.dataDir,
 ): Promise<void> {
+  // In Docker mode, containers manage their own volumes
+  if (process.env.STORAGE_MODE === "docker") return;
   const dirPath = join(process.cwd(), dataDir, "nodes", nodeId);
   await mkdir(dirPath, { recursive: true });
 }
@@ -34,6 +36,110 @@ export async function initializeNodes(
 ): Promise<void> {
   if (initialized) return;
 
+  // ── Docker Mode: discover nodes from NODE_HOSTS env var ──
+  if (process.env.STORAGE_MODE === "docker" && process.env.NODE_HOSTS) {
+    try {
+      await connectDB();
+    } catch {
+      // Continue without persistence
+    }
+
+    const hostEntries = process.env.NODE_HOSTS.split(",").map((h) => h.trim());
+
+    for (let i = 0; i < hostEntries.length; i++) {
+      const [host, portStr] = hostEntries[i].split(":");
+      const port = parseInt(portStr || "4000", 10);
+      const nodeName = `ORBIT-${i + 1}`;
+
+      // Check if this node already exists in DB
+      let existingNode: any = null;
+      try {
+        existingNode = await NodeModel.findOne({ name: nodeName }).lean();
+      } catch {
+        // No DB
+      }
+
+      if (existingNode) {
+        const node: FSNode = {
+          nodeId: existingNode.nodeId as string,
+          name: existingNode.name as string,
+          status: existingNode.status as NodeStatus,
+          createdAt: existingNode.createdAt as string,
+          capacityBytes: existingNode.capacityBytes as number,
+          usedBytes: existingNode.usedBytes as number,
+          chunkCount: existingNode.chunkCount as number,
+          latencyMs: existingNode.latencyMs as number,
+          host,
+          port,
+        };
+        nodesCache.set(node.nodeId, node);
+      } else {
+        const nodeId = uuidv4();
+        const node: FSNode = {
+          nodeId,
+          name: nodeName,
+          status: "online",
+          createdAt: new Date().toISOString(),
+          capacityBytes: 100 * 1024 * 1024, // 100 MB
+          usedBytes: 0,
+          chunkCount: 0,
+          latencyMs: 10, // Real network latency in Docker
+          host,
+          port,
+        };
+        nodesCache.set(nodeId, node);
+
+        try {
+          await NodeModel.create({ ...node, host, port });
+        } catch {
+          // Continue without persistence
+        }
+
+        fsLogger.log(
+          "NODE_CREATE",
+          `Docker node "${nodeName}" registered at ${host}:${port}`,
+          {
+            nodeId,
+            host,
+            port,
+          },
+        );
+      }
+    }
+
+    // ── Health check logging: confirm all Docker containers are reachable ──
+    console.log("[FS-LITE] ── Docker Node Health Check ──");
+    for (const [, node] of nodesCache) {
+      try {
+        const res = await fetch(`http://${node.host}:${node.port}/health`, {
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as {
+            chunkCount?: number;
+            usedBytes?: number;
+          };
+          console.log(
+            `[FS-LITE] ✓ ${node.name} (${node.host}:${node.port}) — ONLINE | chunks: ${data.chunkCount ?? 0} | used: ${((data.usedBytes ?? 0) / 1024).toFixed(1)} KB`,
+          );
+        } else {
+          console.warn(
+            `[FS-LITE] ✗ ${node.name} (${node.host}:${node.port}) — UNHEALTHY (status ${res.status})`,
+          );
+        }
+      } catch {
+        console.warn(
+          `[FS-LITE] ✗ ${node.name} (${node.host}:${node.port}) — UNREACHABLE`,
+        );
+      }
+    }
+    console.log("[FS-LITE] ── Health Check Complete ──");
+
+    initialized = true;
+    return;
+  }
+
+  // ── Local Mode: existing behavior ──
   try {
     await connectDB();
 
@@ -97,12 +203,18 @@ export async function initializeNodes(
   const defaultCapacities = [
     100 * 1024 * 1024, // 100 MB
     150 * 1024 * 1024, // 150 MB
-    80 * 1024 * 1024,  //  80 MB
+    80 * 1024 * 1024, //  80 MB
     200 * 1024 * 1024, // 200 MB
     120 * 1024 * 1024, // 120 MB
   ];
   // Rack assignment: simulates 3 failure domains for CRUSH placement
-  const defaultRacks = ["rack-alpha", "rack-alpha", "rack-beta", "rack-beta", "rack-gamma"];
+  const defaultRacks = [
+    "rack-alpha",
+    "rack-alpha",
+    "rack-beta",
+    "rack-beta",
+    "rack-gamma",
+  ];
 
   for (let i = 0; i < count; i++) {
     const nodeId = uuidv4();

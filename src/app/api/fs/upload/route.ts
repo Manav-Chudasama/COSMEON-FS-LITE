@@ -4,8 +4,6 @@
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import {
   initEngine,
@@ -18,8 +16,14 @@ import {
   addFile,
   simulateLatency,
   DEFAULT_CONFIG,
+  storageClient,
 } from "@/lib/fs-lite";
-import type { FSFile, FSChunk, UploadResult, ChunkingStrategy } from "@/lib/fs-lite";
+import type {
+  FSFile,
+  FSChunk,
+  UploadResult,
+  ChunkingStrategy,
+} from "@/lib/fs-lite";
 
 export async function POST(request: NextRequest) {
   try {
@@ -68,7 +72,10 @@ export async function POST(request: NextRequest) {
           });
 
           // Stage 2: Split
-          emit({ stage: "split", message: `Splitting file into chunks (${chunkingStrategy.toUpperCase()})...` });
+          emit({
+            stage: "split",
+            message: `Splitting file into chunks (${chunkingStrategy.toUpperCase()})...`,
+          });
           const rawChunks = splitFile(buffer, fileId, chunkingStrategy);
           const totalChunks = rawChunks.length;
           const avgKB = Math.round(buffer.length / totalChunks / 1024);
@@ -118,15 +125,11 @@ export async function POST(request: NextRequest) {
 
             await simulateLatency(chunk.nodeId);
 
-            const chunkPath = join(
-              process.cwd(),
-              DEFAULT_CONFIG.dataDir,
-              "nodes",
+            await storageClient.writeChunk(
               chunk.nodeId,
               chunk.chunkId,
+              Buffer.from(chunkData),
             );
-
-            await writeFile(chunkPath, chunkData);
             await updateNodeUsage(chunk.nodeId, chunkData.length, 1);
           }
 

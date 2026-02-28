@@ -13,6 +13,7 @@ export type {
   DistributionStrategy,
   ChunkingStrategy,
   LatencyMode,
+  StorageMode,
   LogEventType,
   IntegrityReport,
   RebalanceReport,
@@ -81,8 +82,19 @@ export { simulateLatency as injectLatency } from "./simulate-latency";
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";
 
+// ── Storage Client ────────────────────────────
+export { storageClient } from "./storage-client";
+
 // ── Logger ────────────────────────────────────
 export { fsLogger } from "./logger";
+
+// ── Docker Control ────────────────────────────
+export {
+  stopNodeContainer,
+  startNodeContainer,
+  isNodeContainerRunning,
+  isDockerMode,
+} from "./docker-control";
 
 // ── Initialization ────────────────────────────
 import { connectDB } from "./db";

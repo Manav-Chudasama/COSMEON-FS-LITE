@@ -35,7 +35,6 @@ export type RebalanceProgressCallback = (event: {
  */
 export async function rebalanceOnFailure(
   failedNodeId: string,
-  dataDir: string = DEFAULT_CONFIG.dataDir,
   onProgress?: RebalanceProgressCallback,
 ): Promise<RebalanceReport> {
   const failedNode = getNode(failedNodeId);
@@ -114,7 +113,6 @@ export async function rebalanceOnFailure(
             const success = await replicateChunkToNode(
               { ...chunk, nodeId: newPrimaryNodeId },
               targetNode.nodeId,
-              dataDir,
             );
 
             if (success) {
@@ -195,7 +193,6 @@ export async function rebalanceOnFailure(
             const success = await replicateChunkToNode(
               chunk,
               targetNode.nodeId,
-              dataDir,
             );
             if (success) {
               filteredReplicas.push(targetNode.nodeId);
@@ -264,7 +261,6 @@ export async function rebalanceOnFailure(
  */
 export async function rebalanceOnRecovery(
   recoveredNodeId: string,
-  dataDir: string = DEFAULT_CONFIG.dataDir,
   onProgress?: RebalanceProgressCallback,
 ): Promise<RebalanceReport> {
   const recoveredNode = getNode(recoveredNodeId);
@@ -354,11 +350,7 @@ export async function rebalanceOnRecovery(
         if (chunk.replicas.includes(overloadedNode.nodeId)) {
           // Replicate to the recovered node
           if (hasCapacity(recoveredNodeId, chunk.size)) {
-            const success = await replicateChunkToNode(
-              chunk,
-              recoveredNodeId,
-              dataDir,
-            );
+            const success = await replicateChunkToNode(chunk, recoveredNodeId);
 
             if (success) {
               const newReplicas = chunk.replicas

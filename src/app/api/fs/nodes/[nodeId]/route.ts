@@ -9,6 +9,9 @@ import {
   getNode,
   rebalanceOnFailure,
   rebalanceOnRecovery,
+  stopNodeContainer,
+  startNodeContainer,
+  isDockerMode,
 } from "@/lib/fs-lite";
 import type { NodeStatus } from "@/lib/fs-lite";
 
@@ -38,7 +41,22 @@ export async function PATCH(
 
     const previousStatus = currentNode.status;
 
-    // Update node status
+    // In Docker mode, physically stop/start the container
+    if (isDockerMode()) {
+      if (status === "offline" && previousStatus !== "offline") {
+        console.log(
+          `[DOCKER-CTL] Stopping container for node "${currentNode.name}"...`,
+        );
+        await stopNodeContainer(currentNode.name);
+      } else if (status === "online" && previousStatus === "offline") {
+        console.log(
+          `[DOCKER-CTL] Starting container for node "${currentNode.name}"...`,
+        );
+        await startNodeContainer(currentNode.name);
+      }
+    }
+
+    // Update node status in DB
     const updatedNode = await setNodeStatus(nodeId, status);
 
     // Trigger rebalancing based on status change

@@ -3,8 +3,6 @@
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   initEngine,
   getFile,
@@ -12,8 +10,8 @@ import {
   simulateLatency,
   chunkCache,
   computeHash,
-  DEFAULT_CONFIG,
   fsLogger,
+  storageClient,
 } from "@/lib/fs-lite";
 import { consumeDownload } from "@/lib/fs-lite/download-store";
 
@@ -68,14 +66,7 @@ export async function GET(
       for (const nodeId of nodesToTry) {
         try {
           await simulateLatency(nodeId);
-          const chunkPath = join(
-            process.cwd(),
-            DEFAULT_CONFIG.dataDir,
-            "nodes",
-            nodeId,
-            chunk.chunkId,
-          );
-          data = await readFile(chunkPath);
+          data = await storageClient.readChunk(nodeId, chunk.chunkId);
 
           // Verify integrity on-the-fly
           const hash = computeHash(data);

@@ -14,6 +14,7 @@
     "@arcjet/next": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dockerode": "^4.0.9",
     "lucide-react": "^0.575.0",
     "mongoose": "^9.2.3",
     "motion": "^12.34.3",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
     "@tailwindcss/postcss": "^4",
+    "@types/dockerode": "^4.0.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

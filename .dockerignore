@@ -1,0 +1,7 @@
+node_modules
+.next
+.fs-lite-data
+.git
+.env*
+*.md
+node-service/node_modules

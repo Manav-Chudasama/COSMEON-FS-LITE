@@ -34,6 +34,9 @@ export type ChunkingStrategy = "fixed" | "cdc";
 /** Latency simulation mode */
 export type LatencyMode = "default" | "high";
 
+/** Storage mode: local disk or Docker containers */
+export type StorageMode = "local" | "docker";
+
 /** Configuration for the FS-Lite engine */
 export interface FSConfig {
   chunkSizeBytes: number;
@@ -57,6 +60,8 @@ export interface FSConfig {
     /** Artificial delay per chunk in high-latency mode (ms) */
     highDelayMs: number;
   };
+  /** Storage mode — local disk or Docker containers */
+  storageMode: StorageMode;
 }
 
 /** Represents a single chunk of a file */
@@ -103,6 +108,10 @@ export interface FSNode {
   chunkCount: number;
   /** Simulated latency in milliseconds */
   latencyMs: number;
+  /** Docker container host (docker mode only) */
+  host?: string;
+  /** Docker container port (docker mode only) */
+  port?: number;
 }
 
 /** A single log entry */
@@ -193,12 +202,15 @@ export const DEFAULT_CONFIG: FSConfig = {
   integrityScanIntervalMs: 60 * 1000, // 60 seconds
   chunking: {
     strategy: "fixed",
-    minSize: 128 * 1024,  // 128 KB min
-    avgSize: 256 * 1024,  // 256 KB target
-    maxSize: 512 * 1024,  // 512 KB max
-    windowSize: 48,       // rolling hash window
-    maskBits: 18,         // ~256 KB average (2^18 = 262144)
-  },  latency: {
+    minSize: 128 * 1024, // 128 KB min
+    avgSize: 256 * 1024, // 256 KB target
+    maxSize: 512 * 1024, // 512 KB max
+    windowSize: 48, // rolling hash window
+    maskBits: 18, // ~256 KB average (2^18 = 262144)
+  },
+  latency: {
     mode: "default" as LatencyMode,
-    highDelayMs: 400,     // 400 ms per chunk in high-latency mode
-  },};
+    highDelayMs: 400, // 400 ms per chunk in high-latency mode
+  },
+  storageMode: "local" as StorageMode,
+};
