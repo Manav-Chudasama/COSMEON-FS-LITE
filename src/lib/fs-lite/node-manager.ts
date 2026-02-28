@@ -220,7 +220,7 @@ export async function setNodeStatus(
  * Get all nodes.
  */
 export function getNodes(): FSNode[] {
-  return Array.from(nodesCache.values());
+  return Array.from(nodesCache.values()).map((n) => ({ ...n }));
 }
 
 /**

@@ -204,11 +204,11 @@ export function startIntegrityScanner(
     `[FS-LITE] Integrity scanner started (interval: ${intervalMs / 1000}s)`,
   );
 
-  scannerInterval = setInterval(() => {
-    scanAllFiles().catch((err) => {
-      console.error("[FS-LITE] Integrity scanner error:", err);
-    });
-  }, intervalMs);
+  // scannerInterval = setInterval(() => {
+  //   scanAllFiles().catch((err) => {
+  //     console.error("[FS-LITE] Integrity scanner error:", err);
+  //   });
+  // }, intervalMs);
 }
 
 /**

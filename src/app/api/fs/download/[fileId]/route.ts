@@ -15,6 +15,7 @@ import {
   DEFAULT_CONFIG,
   fsLogger,
 } from "@/lib/fs-lite";
+import { consumeDownload } from "@/lib/fs-lite/download-store";
 
 export async function GET(
   request: NextRequest,
@@ -23,6 +24,23 @@ export async function GET(
   try {
     await initEngine();
     const { fileId } = await params;
+
+    // Check for a pre-assembled download token
+    const token = new URL(request.url).searchParams.get("token");
+    if (token) {
+      const pending = consumeDownload(token);
+      if (pending) {
+        return new NextResponse(new Uint8Array(pending.buffer), {
+          status: 200,
+          headers: {
+            "Content-Type": pending.mimeType,
+            "Content-Disposition": `attachment; filename="${encodeURIComponent(pending.fileName)}"`,
+            "Content-Length": pending.buffer.length.toString(),
+          },
+        });
+      }
+      // Token expired or invalid — fall through to full reconstruction
+    }
 
     const file = await getFile(fileId);
     if (!file) {

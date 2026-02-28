@@ -12,6 +12,8 @@ import {
 } from "@/lib/fs-lite";
 import type { NodeStatus } from "@/lib/fs-lite";
 
+export const dynamic = "force-dynamic";
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ nodeId: string }> },
