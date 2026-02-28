@@ -70,6 +70,7 @@ export { fsLogger } from "./logger";
 import { connectDB } from "./db";
 import { initializeNodes } from "./node-manager";
 import { initMetadataStore } from "./metadata-store";
+import { fsLogger } from "./logger";
 
 let engineInitialized = false;
 
@@ -88,6 +89,7 @@ export async function initEngine(): Promise<void> {
 
   await initializeNodes();
   await initMetadataStore();
+  await fsLogger.init();
   engineInitialized = true;
 
   console.log("[FS-LITE] Engine initialized");

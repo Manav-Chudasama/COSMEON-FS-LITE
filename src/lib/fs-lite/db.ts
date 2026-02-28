@@ -85,8 +85,20 @@ const nodeSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+const logSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    timestamp: { type: String, required: true },
+    type: { type: String, required: true, index: true },
+    message: { type: String, required: true },
+    metadata: { type: mongoose.Schema.Types.Mixed },
+  },
+  { timestamps: true },
+);
+
 // Prevent model recompilation in Next.js hot reload
 export const FileModel =
   mongoose.models.File || mongoose.model("File", fileSchema);
 export const NodeModel =
   mongoose.models.Node || mongoose.model("Node", nodeSchema);
+export const LogModel = mongoose.models.Log || mongoose.model("Log", logSchema);
