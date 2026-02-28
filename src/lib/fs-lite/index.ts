@@ -55,7 +55,6 @@ export {
   getNode,
   updateNodeUsage,
   hasCapacity,
-  simulateLatency,
 } from "./node-manager";
 
 export {
@@ -77,7 +76,8 @@ export {
 } from "./rebalancer";
 
 // ── Latency Injector ─────────────────────────────────
-export { simulateLatency as injectLatency } from "./simulate-latency";
+export { simulateLatency } from "./simulate-latency";
+
 
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";

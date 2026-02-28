@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
+import dynamic from "next/dynamic";
 import {
   Rocket,
   Layers,
@@ -11,6 +12,8 @@ import {
   Satellite,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const Orb = dynamic(() => import("@/components/Orb"), { ssr: false });
 
 const features = [
   {
@@ -83,6 +86,20 @@ export default function LandingPage() {
         ))}
       </div>
 
+      {/* Orb — glowing ring backdrop behind hero text */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 z-5"
+        style={{ top: "50px", width: "680px", height: "680px", opacity: 0.68 }}
+      >
+        <Orb
+          hoverIntensity={2}
+          rotateOnHover
+          hue={0}
+          forceHoverState={false}
+          backgroundColor="#000000"
+        />
+      </div>
+
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-4 md:px-12">
         <div className="flex items-center gap-2">
@@ -92,7 +109,7 @@ export default function LandingPage() {
           </span>
         </div>
         <Link href="/dashboard">
-          <Button variant="outline" size="sm" className="text-xs">
+          <Button variant="outline" size="sm" className="text-xs cursor-target">
             Launch Dashboard
           </Button>
         </Link>
@@ -135,13 +152,13 @@ export default function LandingPage() {
             className="flex flex-col gap-3 sm:flex-row"
           >
             <Link href="/dashboard">
-              <Button size="lg" className="gap-2 text-sm">
+              <Button size="lg" className="gap-2 text-sm cursor-target">
                 <Rocket className="h-4 w-4" />
                 Launch Dashboard
               </Button>
             </Link>
             <Link href="/dashboard/nodes">
-              <Button variant="outline" size="lg" className="gap-2 text-sm">
+              <Button variant="outline" size="lg" className="gap-2 text-sm cursor-target">
                 <Satellite className="h-4 w-4" />
                 View Constellation
               </Button>
@@ -161,7 +178,7 @@ export default function LandingPage() {
             <motion.div
               key={feature.title}
               variants={itemVariants}
-              className="group rounded-lg border border-border bg-card/50 p-6 transition-colors hover:border-primary/30 hover:bg-card"
+              className="cursor-target group rounded-lg border border-border bg-card/50 p-6 transition-colors hover:border-primary/30 hover:bg-card"
             >
               <feature.icon className="mb-3 h-5 w-5 text-primary transition-transform group-hover:scale-110" />
               <h3 className="mb-2 text-sm font-semibold">{feature.title}</h3>
@@ -206,7 +223,7 @@ export default function LandingPage() {
                   (name, i) => (
                     <motion.div
                       key={name}
-                      className="rounded border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs text-primary"
+                      className="cursor-target rounded border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs text-primary"
                       initial={{ opacity: 0, scale: 0.8 }}
                       whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}

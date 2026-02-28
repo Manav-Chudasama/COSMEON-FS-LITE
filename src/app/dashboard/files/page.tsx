@@ -438,44 +438,46 @@ export default function FilesPage() {
             {!uploading ? (
               /* ─── Pre-upload: strategy + drop zone ─── */
               <div className="mt-2 space-y-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Distribution Strategy
-                  </label>
-                  <Select value={strategy} onValueChange={setStrategy}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Select a strategy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="round-robin" className="text-xs">
-                        Round-Robin (Sequential)
-                      </SelectItem>
-                      <SelectItem value="weighted" className="text-xs">
-                        Weighted (Load Balanced)
-                      </SelectItem>
-                      <SelectItem value="crush" className="text-xs">
-                        CRUSH (Rack-Aware Hashing)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Chunking Strategy
-                  </label>
-                  <Select value={chunkingStrategy} onValueChange={(v) => setChunkingStrategy(v as "fixed" | "cdc")}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Select chunking" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fixed" className="text-xs">
-                        Fixed-Size (256 KB blocks)
-                      </SelectItem>
-                      <SelectItem value="cdc" className="text-xs">
-                        CDC (Content-Defined, 128–512 KB)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Distribution Strategy
+                    </label>
+                    <Select value={strategy} onValueChange={setStrategy}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Select a strategy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="round-robin" className="text-xs">
+                          Round-Robin (Sequential)
+                        </SelectItem>
+                        <SelectItem value="weighted" className="text-xs">
+                          Weighted (Load Balanced)
+                        </SelectItem>
+                        <SelectItem value="crush" className="text-xs">
+                          CRUSH (Rack-Aware Hashing)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Chunking Strategy
+                    </label>
+                    <Select value={chunkingStrategy} onValueChange={(v) => setChunkingStrategy(v as "fixed" | "cdc")}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Select chunking" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed" className="text-xs">
+                          Fixed-Size (256 KB)
+                        </SelectItem>
+                        <SelectItem value="cdc" className="text-xs">
+                          CDC (128–512 KB)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div
                   className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
