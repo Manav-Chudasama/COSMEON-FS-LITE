@@ -15,6 +15,7 @@ import { getNodes, getOnlineNodes } from "./node-manager";
 import { listFiles } from "./metadata-store";
 import { fsLogger } from "./logger";
 import { DEFAULT_CONFIG } from "./types";
+import { isErasureCodingEnabled, getErasureConfig } from "./erasure-coding";
 
 export interface FaultToleranceBreakdown {
   nodeScore: number;
@@ -33,6 +34,9 @@ export interface FaultToleranceResult {
     totalRebalances: number;
     successfulRebalances: number;
     chunkDeviation: number;
+    erasureCoding: boolean;
+    parityShards: number;
+    dataShards: number;
   };
 }
 
@@ -48,9 +52,19 @@ export async function computeFaultToleranceScore(): Promise<FaultToleranceResult
   const totalNodes = allNodes.length || 1;
   const nodeScore = (onlineNodes.length / totalNodes) * 40;
 
-  // ── Step 2: Replication Score (25%) ──
+  // ── Step 2: Replication / Erasure Score (25%) ──
   const replicationFactor = DEFAULT_CONFIG.replicationFactor;
-  const replicationScore = Math.min(replicationFactor / 3, 1) * 25;
+  const ec = getErasureConfig();
+  let replicationScore: number;
+
+  if (isErasureCodingEnabled()) {
+    // Erasure coding: tolerance = m parity shards out of (k+m) total
+    // Higher ratio = better fault tolerance
+    const toleranceRatio = ec.parityShards / (ec.dataShards + ec.parityShards);
+    replicationScore = Math.min(toleranceRatio / 0.5, 1) * 25; // 0.5 tolerance = full score
+  } else {
+    replicationScore = Math.min(replicationFactor / 3, 1) * 25;
+  }
 
   // ── Step 3: Rebalancing Score (20%) ──
   // Count total rebalance events and how many completed successfully
@@ -110,6 +124,9 @@ export async function computeFaultToleranceScore(): Promise<FaultToleranceResult
       totalRebalances,
       successfulRebalances,
       chunkDeviation: Math.round(chunkDeviation * 10) / 10,
+      erasureCoding: isErasureCodingEnabled(),
+      parityShards: ec.parityShards,
+      dataShards: ec.dataShards,
     },
   };
 }

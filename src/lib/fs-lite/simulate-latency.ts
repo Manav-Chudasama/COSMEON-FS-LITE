@@ -16,7 +16,7 @@ import { DEFAULT_CONFIG } from "./types";
  * - "default" mode: returns immediately (no delay)
  * - "high"    mode: waits DEFAULT_CONFIG.latency.highDelayMs
  */
-export async function simulateLatency(): Promise<void> {
+export async function simulateLatency(_nodeId?: string): Promise<void> {
   if (DEFAULT_CONFIG.latency.mode === "high") {
     await new Promise<void>((resolve) =>
       setTimeout(resolve, DEFAULT_CONFIG.latency.highDelayMs),

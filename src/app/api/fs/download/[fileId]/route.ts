@@ -12,6 +12,8 @@ import {
   computeHash,
   fsLogger,
   storageClient,
+  getErasureGroups,
+  decodeDataShards,
 } from "@/lib/fs-lite";
 import { consumeDownload } from "@/lib/fs-lite/download-store";
 
@@ -45,13 +47,16 @@ export async function GET(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    // Sort chunks by index to ensure correct order
-    const sortedChunks = [...file.chunks].sort((a, b) => a.index - b.index);
+    // Sort data chunks by index (skip parity for normal assembly)
+    const dataChunks = file.chunks.filter((c) => !c.isParity);
+    const sortedChunks = [...dataChunks].sort((a, b) => a.index - b.index);
 
     // Fetch each chunk (from cache or disk)
-    const chunkBuffers: Buffer[] = [];
+    const chunkBuffers: (Buffer | null)[] = [];
+    const failedIndices: number[] = [];
 
-    for (const chunk of sortedChunks) {
+    for (let ci = 0; ci < sortedChunks.length; ci++) {
+      const chunk = sortedChunks[ci];
       // Try cache first
       const cached = chunkCache.get(chunk.chunkId);
       if (cached) {
@@ -86,22 +91,102 @@ export async function GET(
         }
       }
 
-      if (!data) {
+      if (data) {
+        chunkCache.set(chunk.chunkId, data);
+        chunkBuffers.push(data);
+      } else {
+        // Mark as failed — might be recoverable via erasure coding
+        chunkBuffers.push(null);
+        failedIndices.push(ci);
+      }
+    }
+
+    // ── Erasure recovery if needed ──
+    if (failedIndices.length > 0) {
+      if (file.erasureCoded) {
+        const groups = getErasureGroups(file.chunks);
+
+        for (const group of groups) {
+          // Find which data chunks in this group are missing
+          const groupDataSorted = group.dataChunks.sort(
+            (a, b) => (a.groupIndex ?? 0) - (b.groupIndex ?? 0),
+          );
+
+          const groupShards: (Buffer | null)[] = [];
+          let hasMissing = false;
+
+          for (const gChunk of groupDataSorted) {
+            const idx = sortedChunks.findIndex(
+              (c) => c.chunkId === gChunk.chunkId,
+            );
+            if (idx >= 0 && chunkBuffers[idx] !== null) {
+              groupShards.push(chunkBuffers[idx]);
+            } else {
+              groupShards.push(null);
+              hasMissing = true;
+            }
+          }
+
+          if (!hasMissing) continue;
+
+          // Read parity chunks
+          const parityBuffers: Buffer[] = [];
+          for (const pChunk of group.parityChunks) {
+            try {
+              const pData = await storageClient.readChunk(
+                pChunk.nodeId,
+                pChunk.chunkId,
+              );
+              parityBuffers.push(pData);
+            } catch {
+              parityBuffers.push(Buffer.alloc(0));
+            }
+          }
+
+          if (parityBuffers.some((p) => p.length > 0)) {
+            // Decode missing shards
+            const recovered = decodeDataShards(groupShards, parityBuffers);
+
+            fsLogger.log(
+              "ERASURE_DECODE",
+              `Recovered ${groupShards.filter((s) => s === null).length} missing chunks via erasure coding`,
+              { groupId: group.groupId },
+            );
+
+            // Fill recovered data back into chunkBuffers
+            for (let gi = 0; gi < groupDataSorted.length; gi++) {
+              const idx = sortedChunks.findIndex(
+                (c) => c.chunkId === groupDataSorted[gi].chunkId,
+              );
+              if (idx >= 0 && chunkBuffers[idx] === null) {
+                // Trim recovered buffer to original chunk size
+                const originalSize = groupDataSorted[gi].size;
+                chunkBuffers[idx] = recovered[gi].subarray(0, originalSize);
+              }
+            }
+          }
+        }
+      }
+
+      // Check if any chunks are still missing after erasure recovery
+      const stillMissing = chunkBuffers
+        .map((b, i) => (b === null ? i : -1))
+        .filter((i) => i >= 0);
+
+      if (stillMissing.length > 0) {
         return NextResponse.json(
           {
-            error: `Failed to retrieve chunk ${chunk.index} — all nodes unavailable or data corrupted`,
+            error: `Failed to retrieve ${stillMissing.length} chunk(s) — data unrecoverable`,
           },
           { status: 500 },
         );
       }
-
-      // Cache for future use
-      chunkCache.set(chunk.chunkId, data);
-      chunkBuffers.push(data);
     }
 
     // Reassemble
-    const fullFile = reassembleFile(chunkBuffers);
+    const fullFile = reassembleFile(
+      chunkBuffers.filter((b) => b !== null) as Buffer[],
+    );
 
     fsLogger.log("FILE_DOWNLOAD", `File "${file.originalName}" downloaded`, {
       fileId: file.fileId,

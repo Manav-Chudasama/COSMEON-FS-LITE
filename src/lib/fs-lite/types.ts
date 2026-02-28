@@ -26,7 +26,9 @@ export type LogEventType =
   | "INTEGRITY_ALERT"
   | "CACHE_HIT"
   | "CACHE_MISS"
-  | "CACHE_EVICT";
+  | "CACHE_EVICT"
+  | "ERASURE_ENCODE"
+  | "ERASURE_DECODE";
 
 /** Chunking strategy */
 export type ChunkingStrategy = "fixed" | "cdc";
@@ -62,6 +64,14 @@ export interface FSConfig {
   };
   /** Storage mode — local disk or Docker containers */
   storageMode: StorageMode;
+  /** Erasure coding configuration */
+  erasureCoding: {
+    enabled: boolean;
+    /** Number of data shards (k) */
+    dataShards: number;
+    /** Number of parity shards (m) */
+    parityShards: number;
+  };
 }
 
 /** Represents a single chunk of a file */
@@ -76,6 +86,12 @@ export interface FSChunk {
   nodeId: string;
   /** Replica locations (nodeIds where copies exist) */
   replicas: string[];
+  /** Whether this is a parity chunk (erasure coding) */
+  isParity?: boolean;
+  /** Erasure group ID — chunks in the same group can recover each other */
+  groupId?: string;
+  /** Index within the erasure group (0..k-1 = data, k..k+m-1 = parity) */
+  groupIndex?: number;
 }
 
 /** Represents a file stored in the system */
@@ -90,6 +106,8 @@ export interface FSFile {
   uploadedAt: string;
   version: number;
   chunks: FSChunk[];
+  /** Whether this file uses erasure coding */
+  erasureCoded?: boolean;
 }
 
 /** Represents a satellite node */
@@ -213,4 +231,9 @@ export const DEFAULT_CONFIG: FSConfig = {
     highDelayMs: 400, // 400 ms per chunk in high-latency mode
   },
   storageMode: "local" as StorageMode,
+  erasureCoding: {
+    enabled: false,
+    dataShards: 3, // k=3
+    parityShards: 2, // m=2  →  total = 5 shards per group
+  },
 };

@@ -102,6 +102,18 @@ export {
   type FaultToleranceBreakdown,
 } from "./fault-tolerance";
 
+// ── Erasure Coding ───────────────────────────
+export {
+  isErasureCodingEnabled,
+  setErasureCodingEnabled,
+  getErasureConfig,
+  encodeParityShards,
+  decodeDataShards,
+  getErasureGroups,
+  createParityChunkMetadata,
+  type ErasureGroup,
+} from "./erasure-coding";
+
 // ── Initialization ────────────────────────────
 import { connectDB } from "./db";
 import { initializeNodes } from "./node-manager";

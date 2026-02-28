@@ -222,13 +222,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  const {
-    faultTolerance,
-    timeline,
-    nodeDistribution,
-    cacheStats,
-    systemStats,
-  } = data;
+  const { faultTolerance, timeline, nodeDistribution, cacheStats } = data;
 
   // Blend real + dummy event counts
   const blendedCounts: Record<string, number> = { ...DUMMY_EVENT_COUNTS };
@@ -861,87 +855,6 @@ export default function AnalyticsPage() {
                     />
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* ── System Summary Cards ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-        >
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Activity className="h-4 w-4 text-primary" />
-                System Overview
-              </CardTitle>
-              <CardDescription className="text-[10px]">
-                Current cluster state
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {
-                    label: "Total Files",
-                    value: systemStats.totalFiles,
-                    suffix: "",
-                  },
-                  {
-                    label: "Total Chunks",
-                    value: systemStats.totalChunks,
-                    suffix: "",
-                  },
-                  {
-                    label: "Online Nodes",
-                    value: `${systemStats.onlineNodes}/${systemStats.totalNodes}`,
-                    suffix: "",
-                  },
-                  {
-                    label: "Offline Nodes",
-                    value: systemStats.offlineNodes,
-                    suffix: "",
-                  },
-                  {
-                    label: "Total Storage",
-                    value: formatBytes(systemStats.totalStorage),
-                    suffix: "",
-                  },
-                  {
-                    label: "Used Storage",
-                    value: formatBytes(systemStats.usedStorage),
-                    suffix: "",
-                  },
-                  {
-                    label: "Cache Items",
-                    value: cacheStats.itemCount,
-                    suffix: "",
-                  },
-                  {
-                    label: "Total Events",
-                    value: Object.values(blendedCounts).reduce(
-                      (s, v) => s + v,
-                      0,
-                    ),
-                    suffix: "",
-                  },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-lg border bg-muted/20 p-3"
-                  >
-                    <p className="text-[10px] text-muted-foreground">
-                      {stat.label}
-                    </p>
-                    <p className="text-base font-bold tabular-nums">
-                      {stat.value}
-                      {stat.suffix}
-                    </p>
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>
