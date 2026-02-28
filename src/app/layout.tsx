@@ -4,6 +4,7 @@ import { IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import ClientCursor from "@/components/ClientCursor";
 import "./globals.css";
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -25,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${ibmPlexMono.variable} font-mono antialiased`}>
+      <body suppressHydrationWarning className={`${ibmPlexMono.variable} font-mono antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -33,6 +34,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
+            <ClientCursor />
             {children}
             <Toaster />
           </TooltipProvider>
