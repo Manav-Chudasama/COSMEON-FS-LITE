@@ -21,6 +21,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import type { FSFile } from "@/lib/fs-lite/types";
 
@@ -53,6 +60,7 @@ export default function FilesPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [strategy, setStrategy] = useState("round-robin");
 
   const fetchFiles = useCallback(() => {
     fetch("/api/fs/files")
@@ -72,6 +80,7 @@ export default function FilesPage() {
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("strategy", strategy);
 
     try {
       const res = await fetch("/api/fs/upload", {
@@ -153,49 +162,73 @@ export default function FilesPage() {
                 Upload to Constellation
               </DialogTitle>
             </DialogHeader>
-            <div
-              className={`mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
-                dragOver ? "border-primary bg-primary/5" : "border-border"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                const file = e.dataTransfer.files[0];
-                if (file) handleUpload(file);
-              }}
-            >
-              <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="mb-1 text-sm font-medium">
-                {uploading
-                  ? "Distributing across nodes..."
-                  : "Drop file here or click to browse"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                File will be chunked and distributed
-              </p>
-              {!uploading && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 text-xs"
-                  onClick={() => {
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) handleUpload(file);
-                    };
-                    input.click();
-                  }}
+            <div className="mt-2 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Distribution Strategy
+                </label>
+                <Select
+                  value={strategy}
+                  onValueChange={setStrategy}
+                  disabled={uploading}
                 >
-                  Browse Files
-                </Button>
-              )}
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select a strategy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="round-robin" className="text-xs">
+                      Round-Robin (Sequential)
+                    </SelectItem>
+                    <SelectItem value="weighted" className="text-xs">
+                      Weighted (Load Balanced)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
+                  dragOver ? "border-primary bg-primary/5" : "border-border"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleUpload(file);
+                }}
+              >
+                <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+                <p className="mb-1 text-sm font-medium">
+                  {uploading
+                    ? "Distributing across nodes..."
+                    : "Drop file here or click to browse"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  File will be chunked and distributed
+                </p>
+                {!uploading && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 text-xs"
+                    onClick={() => {
+                      const input = document.createElement("input");
+                      input.type = "file";
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) handleUpload(file);
+                      };
+                      input.click();
+                    }}
+                  >
+                    Browse Files
+                  </Button>
+                )}
+              </div>
             </div>
           </DialogContent>
         </Dialog>

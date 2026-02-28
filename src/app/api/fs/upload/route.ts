@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
     // Parse multipart form data
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    const strategy =
+      (formData.get("strategy") as any) || DEFAULT_CONFIG.distributionStrategy;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Distribute chunks across nodes
-    let chunks = distributeChunks(rawChunks, onlineNodes);
+    let chunks = distributeChunks(rawChunks, onlineNodes, strategy);
 
     // Write chunk data to node directories
     for (const chunk of chunks) {
