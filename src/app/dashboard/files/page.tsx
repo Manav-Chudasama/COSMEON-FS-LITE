@@ -423,6 +423,9 @@ export default function FilesPage() {
                       <SelectItem value="weighted" className="text-xs">
                         Weighted (Load Balanced)
                       </SelectItem>
+                      <SelectItem value="crush" className="text-xs">
+                        CRUSH (Rack-Aware Hashing)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -442,48 +445,13 @@ export default function FilesPage() {
                     if (file) handleUpload(file);
                   }}
                 >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select a strategy" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="round-robin" className="text-xs">
-                      Round-Robin (Sequential)
-                    </SelectItem>
-                    <SelectItem value="weighted" className="text-xs">
-                      Weighted (Load Balanced)
-                    </SelectItem>
-                    <SelectItem value="crush" className="text-xs">
-                      CRUSH (Rack-Aware Hashing)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
-                  dragOver ? "border-primary bg-primary/5" : "border-border"
-                }`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleUpload(file);
-                }}
-              >
-                <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
-                <p className="mb-1 text-sm font-medium">
-                  {uploading
-                    ? "Distributing across nodes..."
-                    : "Drop file here or click to browse"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  File will be chunked and distributed
-                </p>
-                {!uploading && (
+                  <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="mb-1 text-sm font-medium">
+                    Drop file here or click to browse
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    File will be chunked and distributed
+                  </p>
                   <Button
                     variant="outline"
                     size="sm"
