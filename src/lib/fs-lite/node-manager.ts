@@ -360,8 +360,8 @@ export async function updateNodeUsage(
   const node = nodesCache.get(nodeId);
   if (!node) return;
 
-  node.usedBytes += bytesChange;
-  node.chunkCount += chunkCountChange;
+  node.usedBytes = Math.max(0, node.usedBytes + bytesChange);
+  node.chunkCount = Math.max(0, node.chunkCount + chunkCountChange);
   nodesCache.set(nodeId, node);
 
   try {

@@ -145,6 +145,21 @@ export default function NodesPage() {
               ]);
             }
 
+            // Optimistically update node status in UI immediately
+            if (
+              event.stage === "status_changed" &&
+              event.nodeId &&
+              event.newStatus
+            ) {
+              setNodes((prev) =>
+                prev.map((n) =>
+                  n.nodeId === event.nodeId
+                    ? { ...n, status: event.newStatus as NodeStatus }
+                    : n,
+                ),
+              );
+            }
+
             if (event.stage === "migrate") {
               setRebalanceProgress({
                 current: event.chunkIndex as number,
@@ -185,8 +200,8 @@ export default function NodesPage() {
       toast.error(error instanceof Error ? error.message : "Rebalance failed");
     } finally {
       setRebalancing(false);
-      // Final refresh to ensure latest state
-      fetchNodes();
+      // Delay refresh to let backend finish post-rebalance cleanup
+      setTimeout(() => fetchNodes(), 500);
     }
   };
 

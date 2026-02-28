@@ -3,7 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { Upload, Download, Trash2, ShieldCheck, FileIcon, Gauge } from "lucide-react";
+import {
+  Upload,
+  Download,
+  Trash2,
+  ShieldCheck,
+  FileIcon,
+  Gauge,
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -63,7 +70,9 @@ export default function FilesPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [strategy, setStrategy] = useState("round-robin");
-  const [chunkingStrategy, setChunkingStrategy] = useState<"fixed" | "cdc">("fixed");
+  const [chunkingStrategy, setChunkingStrategy] = useState<"fixed" | "cdc">(
+    "fixed",
+  );
 
   // Streaming upload progress state
   const [uploadStage, setUploadStage] = useState<string>("");
@@ -464,7 +473,12 @@ export default function FilesPage() {
                     <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       Chunking Strategy
                     </label>
-                    <Select value={chunkingStrategy} onValueChange={(v) => setChunkingStrategy(v as "fixed" | "cdc")}>
+                    <Select
+                      value={chunkingStrategy}
+                      onValueChange={(v) =>
+                        setChunkingStrategy(v as "fixed" | "cdc")
+                      }
+                    >
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="Select chunking" />
                       </SelectTrigger>
@@ -898,7 +912,7 @@ export default function FilesPage() {
                     animate="visible"
                     exit="exit"
                     transition={{ delay: i * 0.05 }}
-                    className="border-b transition-colors hover:bg-muted/50"
+                    className="cursor-target border-b transition-colors hover:bg-muted/50"
                   >
                     <TableCell>
                       <Link

@@ -120,9 +120,6 @@ export async function rebalanceOnFailure(
               remainingReplicas.push(targetNode.nodeId);
             }
 
-            // Decrement failed node stats
-            await updateNodeUsage(failedNodeId, -chunk.size, -1);
-
             updatedChunks.push({
               ...chunk,
               nodeId: newPrimaryNodeId,
@@ -174,9 +171,6 @@ export async function rebalanceOnFailure(
         const filteredReplicas = chunk.replicas.filter(
           (r) => r !== failedNodeId,
         );
-
-        // Decrement failed node stats for the replica copy
-        await updateNodeUsage(failedNodeId, -chunk.size, -1);
 
         if (filteredReplicas.length < DEFAULT_CONFIG.replicationFactor - 1) {
           const targetNode = findBestTarget(onlineNodes, chunk.size, [
@@ -232,6 +226,15 @@ export async function rebalanceOnFailure(
     }
 
     await updateFileChunks(file.fileId, updatedChunks);
+  }
+
+  // Reset failed node usage to zero — all its data is gone / migrated away
+  if (failedNode) {
+    await updateNodeUsage(
+      failedNodeId,
+      -failedNode.usedBytes,
+      -failedNode.chunkCount,
+    );
   }
 
   fsLogger.log(

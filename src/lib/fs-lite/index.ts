@@ -78,7 +78,6 @@ export {
 // ── Latency Injector ─────────────────────────────────
 export { simulateLatency } from "./simulate-latency";
 
-
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";
 
@@ -95,6 +94,13 @@ export {
   isNodeContainerRunning,
   isDockerMode,
 } from "./docker-control";
+
+// ── Fault Tolerance ──────────────────────────
+export {
+  computeFaultToleranceScore,
+  type FaultToleranceResult,
+  type FaultToleranceBreakdown,
+} from "./fault-tolerance";
 
 // ── Initialization ────────────────────────────
 import { connectDB } from "./db";

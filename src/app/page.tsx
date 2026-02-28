@@ -124,7 +124,7 @@ export default function LandingPage() {
           animate="visible"
         >
           <motion.div variants={itemVariants} className="mb-6">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary">
+            <span className="cursor-target inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary">
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
               Orbital File System Simulation
             </span>
@@ -158,7 +158,11 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="/dashboard/nodes">
-              <Button variant="outline" size="lg" className="gap-2 text-sm cursor-target">
+              <Button
+                variant="outline"
+                size="lg"
+                className="gap-2 text-sm cursor-target"
+              >
                 <Satellite className="h-4 w-4" />
                 View Constellation
               </Button>
@@ -197,23 +201,23 @@ export default function LandingPage() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <div className="rounded-lg border border-border bg-card/30 p-8">
+          <div className="cursor-target rounded-lg border border-border bg-card/30 p-8">
             <p className="mb-6 text-center text-xs font-medium uppercase tracking-widest text-muted-foreground">
               System Architecture
             </p>
             <div className="flex flex-col items-center gap-4">
               {/* Client */}
-              <div className="rounded border border-primary/40 bg-primary/5 px-6 py-2 text-xs font-medium text-primary">
+              <div className="cursor-target rounded border border-primary/40 bg-primary/5 px-6 py-2 text-xs font-medium text-primary">
                 Browser Dashboard
               </div>
               <div className="h-6 w-px bg-border" />
               {/* API Layer */}
-              <div className="rounded border border-border bg-muted px-6 py-2 text-xs font-medium">
+              <div className="cursor-target rounded border border-border bg-muted px-6 py-2 text-xs font-medium">
                 API Routes + Arcjet Security
               </div>
               <div className="h-6 w-px bg-border" />
               {/* Engine */}
-              <div className="rounded border border-border bg-muted px-6 py-2 text-xs font-medium">
+              <div className="cursor-target rounded border border-border bg-muted px-6 py-2 text-xs font-medium">
                 FS-Lite Core Engine
               </div>
               <div className="h-6 w-px bg-border" />

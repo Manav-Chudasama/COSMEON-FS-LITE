@@ -7,6 +7,7 @@ import {
   Files,
   Satellite,
   ScrollText,
+  BarChart3,
   Moon,
   Sun,
 } from "lucide-react";
@@ -47,6 +48,11 @@ const navItems = [
     href: "/dashboard/logs",
     icon: ScrollText,
   },
+  {
+    title: "Analytics",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+  },
 ];
 
 export function AppSidebar() {
@@ -58,7 +64,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm font-bold tracking-wider"
+          className="cursor-target flex items-center gap-2 text-sm font-bold tracking-wider"
         >
           <Satellite className="h-4 w-4 text-primary" />
           <span>
@@ -87,7 +93,11 @@ export function AppSidebar() {
 
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      className="cursor-target"
+                    >
                       <Link href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span className="text-xs">{item.title}</span>
@@ -105,7 +115,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start gap-2 text-xs"
+          className="cursor-target w-full justify-start gap-2 text-xs"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         >
           <Sun className="h-3.5 w-3.5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
