@@ -5,6 +5,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { initEngine, getNodes, createNode } from "@/lib/fs-lite";
 
+export const dynamic = "force-dynamic";
+
 /** GET — List all satellite nodes */
 export async function GET() {
   try {

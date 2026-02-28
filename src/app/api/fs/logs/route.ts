@@ -6,6 +6,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { initEngine, fsLogger } from "@/lib/fs-lite";
 import type { LogEventType } from "@/lib/fs-lite";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     await initEngine();

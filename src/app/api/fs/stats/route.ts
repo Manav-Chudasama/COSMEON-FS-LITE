@@ -6,6 +6,8 @@ import { NextResponse } from "next/server";
 import { initEngine, getNodes, listFiles, chunkCache } from "@/lib/fs-lite";
 import type { SystemStats } from "@/lib/fs-lite";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     await initEngine();

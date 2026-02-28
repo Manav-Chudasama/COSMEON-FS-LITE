@@ -5,6 +5,8 @@
 import { NextResponse } from "next/server";
 import { initEngine, listFiles } from "@/lib/fs-lite";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     await initEngine();
