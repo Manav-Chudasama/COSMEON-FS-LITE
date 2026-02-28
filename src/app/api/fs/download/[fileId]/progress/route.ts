@@ -12,12 +12,12 @@ import {
   getFile,
   getNode,
   reassembleFile,
-  simulateLatency as applyLatency,
   chunkCache,
   computeHash,
   DEFAULT_CONFIG,
   fsLogger,
 } from "@/lib/fs-lite";
+import { simulateLatency } from "@/lib/fs-lite/simulate-latency";
 
 export async function POST(
   request: NextRequest,
@@ -32,16 +32,8 @@ export async function POST(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    // Read options from POST body
-    let enableLatency = true;
-    try {
-      const body = await request.json();
-      if (typeof body.simulateLatency === "boolean") {
-        enableLatency = body.simulateLatency;
-      }
-    } catch {
-      // No body or invalid JSON — use defaults
-    }
+    // Read latency mode from DEFAULT_CONFIG (set via PATCH /api/fs/latency)
+    const latencyMode = DEFAULT_CONFIG.latency.mode;
 
     const sortedChunks = [...file.chunks].sort((a, b) => a.index - b.index);
     const totalChunks = sortedChunks.length;
@@ -56,9 +48,10 @@ export async function POST(
         try {
           emit({
             stage: "start",
-            message: `Reconstructing "${file.originalName}" (${totalChunks} chunks)...`,
+            message: `Reconstructing "${file.originalName}" (${totalChunks} chunks, latency: ${latencyMode})...`,
             fileName: file.originalName,
             totalChunks,
+            latencyMode,
           });
 
           const chunkBuffers: Buffer[] = [];
@@ -91,9 +84,8 @@ export async function POST(
 
             for (const nodeId of nodesToTry) {
               try {
-                await (enableLatency
-                  ? applyLatency(nodeId)
-                  : Promise.resolve());
+                // Inject global latency delay before each chunk read
+                await simulateLatency();
                 const chunkPath = join(
                   process.cwd(),
                   DEFAULT_CONFIG.dataDir,
@@ -153,6 +145,7 @@ export async function POST(
             stage: "verify",
             message: "Verifying chunk integrity...",
           });
+          await simulateLatency();
 
           // Reassemble
           emit({

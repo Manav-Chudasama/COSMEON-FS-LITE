@@ -3,11 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { Upload, Download, Trash2, ShieldCheck, FileIcon } from "lucide-react";
+import { Upload, Download, Trash2, ShieldCheck, FileIcon, Gauge } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -89,7 +87,14 @@ export default function FilesPage() {
   const [downloadEvents, setDownloadEvents] = useState<
     { message: string; stage: string }[]
   >([]);
-  const [dlSimulateLatency, setDlSimulateLatency] = useState(true);
+
+  // Latency picker state
+  const [latencyMode, setLatencyMode] = useState<"default" | "high">("default");
+  const [latencyPickerOpen, setLatencyPickerOpen] = useState(false);
+  const [pendingDownload, setPendingDownload] = useState<{
+    fileId: string;
+    fileName: string;
+  } | null>(null);
 
   const fetchFiles = useCallback(() => {
     fetch("/api/fs/files")
@@ -209,6 +214,29 @@ export default function FilesPage() {
     setDownloadFileName("");
   };
 
+  const openLatencyPicker = (fileId: string, fileName: string) => {
+    // Sync current mode from server before showing picker
+    fetch("/api/fs/latency")
+      .then((r) => r.json())
+      .then((d) => setLatencyMode(d.mode ?? "default"))
+      .catch(() => {});
+    setPendingDownload({ fileId, fileName });
+    setLatencyPickerOpen(true);
+  };
+
+  const confirmDownload = async () => {
+    if (!pendingDownload) return;
+    setLatencyPickerOpen(false);
+    // Push the chosen mode to the server before streaming
+    await fetch("/api/fs/latency", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: latencyMode }),
+    }).catch(() => {});
+    handleDownload(pendingDownload.fileId, pendingDownload.fileName);
+    setPendingDownload(null);
+  };
+
   const handleDownload = async (fileId: string, fileName: string) => {
     setDownloading(true);
     resetDownloadState();
@@ -219,7 +247,7 @@ export default function FilesPage() {
       const res = await fetch(`/api/fs/download/${fileId}/progress`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ simulateLatency: dlSimulateLatency }),
+        body: JSON.stringify({}),
       });
 
       if (!res.ok || !res.body) {
@@ -615,6 +643,80 @@ export default function FilesPage() {
           </DialogContent>
         </Dialog>
 
+        {/* ── Latency Picker Dialog ────────────────────────────── */}
+        <Dialog
+          open={latencyPickerOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setLatencyPickerOpen(false);
+              setPendingDownload(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Download Settings</DialogTitle>
+              {pendingDownload && (
+                <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                  {pendingDownload.fileName}
+                </p>
+              )}
+            </DialogHeader>
+
+            <div className="mt-1 space-y-3">
+              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Gauge className="h-3 w-3" />
+                Node Latency Simulation
+              </p>
+
+              {/* Default / High toggle */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setLatencyMode("default")}
+                  className={`flex flex-col items-start gap-1.5 rounded-lg border p-4 text-left transition-all ${
+                    latencyMode === "default"
+                      ? "border-primary bg-primary/5 text-foreground"
+                      : "border-border text-muted-foreground hover:border-muted-foreground/40"
+                  }`}
+                >
+                  <span className="text-xs font-semibold">Default</span>
+                  <span className="text-[10px] leading-snug opacity-70">
+                    No artificial delay.
+                    <br />
+                    Chunks read at full speed.
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setLatencyMode("high")}
+                  className={`flex flex-col items-start gap-1.5 rounded-lg border p-4 text-left transition-all ${
+                    latencyMode === "high"
+                      ? "border-amber-500 bg-amber-500/5 text-amber-400"
+                      : "border-border text-muted-foreground hover:border-muted-foreground/40"
+                  }`}
+                >
+                  <span className="text-xs font-semibold">High</span>
+                  <span className="text-[10px] leading-snug opacity-70">
+                    400 ms delay per chunk.
+                    <br />
+                    Visualise each pipeline step.
+                  </span>
+                </button>
+              </div>
+
+              {/* Start button */}
+              <Button
+                className="mt-1 w-full gap-2 text-xs"
+                size="sm"
+                onClick={confirmDownload}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Start Download
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Download progress dialog */}
         <Dialog
           open={downloadOpen}
@@ -632,21 +734,6 @@ export default function FilesPage() {
               </DialogTitle>
             </DialogHeader>
 
-            {/* Latency toggle */}
-            <div className="flex items-center justify-between rounded-md border px-3 py-2">
-              <Label
-                htmlFor="dl-latency"
-                className="text-xs text-muted-foreground"
-              >
-                Simulate Node Latency
-              </Label>
-              <Switch
-                id="dl-latency"
-                checked={dlSimulateLatency}
-                onCheckedChange={setDlSimulateLatency}
-                disabled={downloading}
-              />
-            </div>
             <div className="mt-2 space-y-4">
               {/* Stage stepper */}
               <div className="space-y-2">
@@ -836,7 +923,7 @@ export default function FilesPage() {
                           size="icon"
                           className="h-7 w-7"
                           onClick={() =>
-                            handleDownload(file.fileId, file.originalName)
+                            openLatencyPicker(file.fileId, file.originalName)
                           }
                         >
                           <Download className="h-3.5 w-3.5" />

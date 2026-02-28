@@ -12,6 +12,7 @@ export type {
   NodeStatus,
   DistributionStrategy,
   ChunkingStrategy,
+  LatencyMode,
   LogEventType,
   IntegrityReport,
   RebalanceReport,
@@ -73,6 +74,9 @@ export {
   rebalanceOnRecovery,
   type RebalanceProgressCallback,
 } from "./rebalancer";
+
+// ── Latency Injector ─────────────────────────────────
+export { simulateLatency as injectLatency } from "./simulate-latency";
 
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";

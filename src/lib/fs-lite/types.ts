@@ -31,6 +31,9 @@ export type LogEventType =
 /** Chunking strategy */
 export type ChunkingStrategy = "fixed" | "cdc";
 
+/** Latency simulation mode */
+export type LatencyMode = "default" | "high";
+
 /** Configuration for the FS-Lite engine */
 export interface FSConfig {
   chunkSizeBytes: number;
@@ -43,16 +46,16 @@ export interface FSConfig {
   integrityScanIntervalMs: number;
   chunking: {
     strategy: ChunkingStrategy;
-    /** Minimum chunk size in bytes (CDC only) */
     minSize: number;
-    /** Target average chunk size in bytes (CDC only) */
     avgSize: number;
-    /** Maximum chunk size in bytes (CDC only) */
     maxSize: number;
-    /** Rolling hash window size in bytes (CDC only) */
     windowSize: number;
-    /** Mask bits for boundary detection -- lower = larger avg chunks (CDC only) */
     maskBits: number;
+  };
+  latency: {
+    mode: LatencyMode;
+    /** Artificial delay per chunk in high-latency mode (ms) */
+    highDelayMs: number;
   };
 }
 
@@ -190,10 +193,12 @@ export const DEFAULT_CONFIG: FSConfig = {
   integrityScanIntervalMs: 60 * 1000, // 60 seconds
   chunking: {
     strategy: "fixed",
-    minSize: 128 * 1024, // 128 KB min
-    avgSize: 256 * 1024, // 256 KB target
-    maxSize: 512 * 1024, // 512 KB max
-    windowSize: 48, // rolling hash window
-    maskBits: 18, // ~256 KB average (2^18 = 262144)
-  },
-};
+    minSize: 128 * 1024,  // 128 KB min
+    avgSize: 256 * 1024,  // 256 KB target
+    maxSize: 512 * 1024,  // 512 KB max
+    windowSize: 48,       // rolling hash window
+    maskBits: 18,         // ~256 KB average (2^18 = 262144)
+  },  latency: {
+    mode: "default" as LatencyMode,
+    highDelayMs: 400,     // 400 ms per chunk in high-latency mode
+  },};
