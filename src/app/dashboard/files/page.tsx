@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { Upload, Download, Trash2, ShieldCheck, FileIcon } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -62,6 +64,29 @@ export default function FilesPage() {
   const [dragOver, setDragOver] = useState(false);
   const [strategy, setStrategy] = useState("round-robin");
 
+  // Streaming upload progress state
+  const [uploadStage, setUploadStage] = useState<string>("");
+  const [uploadProgress, setUploadProgress] = useState({
+    current: 0,
+    total: 0,
+  });
+  const [uploadEvents, setUploadEvents] = useState<
+    { message: string; stage: string }[]
+  >([]);
+
+  // Streaming download progress state
+  const [downloading, setDownloading] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloadFileName, setDownloadFileName] = useState("");
+  const [downloadStage, setDownloadStage] = useState<string>("");
+  const [downloadProgress, setDownloadProgress] = useState({
+    current: 0,
+    total: 0,
+  });
+  const [downloadEvents, setDownloadEvents] = useState<
+    { message: string; stage: string }[]
+  >([]);
+
   const fetchFiles = useCallback(() => {
     fetch("/api/fs/files")
       .then((res) => res.json())
@@ -76,8 +101,15 @@ export default function FilesPage() {
     fetchFiles();
   }, [fetchFiles]);
 
+  const resetUploadState = () => {
+    setUploadStage("");
+    setUploadProgress({ current: 0, total: 0 });
+    setUploadEvents([]);
+  };
+
   const handleUpload = async (file: File) => {
     setUploading(true);
+    resetUploadState();
     const formData = new FormData();
     formData.append("file", file);
     formData.append("strategy", strategy);
@@ -88,17 +120,61 @@ export default function FilesPage() {
         body: formData,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Upload failed");
+      if (!res.ok || !res.body) {
+        throw new Error("Upload failed");
       }
 
-      const result = await res.json();
-      toast.success(`"${result.file.originalName}" uploaded`, {
-        description: `${result.file.chunkCount} chunks distributed across nodes`,
-      });
-      setUploadOpen(false);
-      fetchFiles();
+      // Read the NDJSON stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            setUploadStage(event.stage);
+            setUploadEvents((prev) => [
+              ...prev,
+              { message: event.message, stage: event.stage },
+            ]);
+
+            if (event.stage === "write") {
+              setUploadProgress({
+                current: (event.chunkIndex as number) + 1,
+                total: event.totalChunks as number,
+              });
+            } else if (event.stage === "split_done") {
+              setUploadProgress((prev) => ({
+                ...prev,
+                total: event.totalChunks as number,
+              }));
+            } else if (event.stage === "complete") {
+              const result = event.result as any;
+              toast.success(`"${result.file.originalName}" uploaded`, {
+                description: `${result.file.chunkCount} chunks distributed across nodes`,
+              });
+              setTimeout(() => {
+                setUploadOpen(false);
+                resetUploadState();
+                fetchFiles();
+              }, 800);
+            } else if (event.stage === "error") {
+              toast.error(event.message as string);
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Upload failed");
     } finally {
@@ -121,23 +197,175 @@ export default function FilesPage() {
     }
   };
 
-  const handleDownload = async (fileId: string, fileName: string) => {
-    try {
-      const res = await fetch(`/api/fs/download/${fileId}`);
-      if (!res.ok) throw new Error("Download failed");
+  const resetDownloadState = () => {
+    setDownloadStage("");
+    setDownloadProgress({ current: 0, total: 0 });
+    setDownloadEvents([]);
+    setDownloadFileName("");
+  };
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(`"${fileName}" downloaded`);
-    } catch {
-      toast.error("Download failed");
+  const handleDownload = async (fileId: string, fileName: string) => {
+    setDownloading(true);
+    resetDownloadState();
+    setDownloadFileName(fileName);
+    setDownloadOpen(true);
+
+    try {
+      const res = await fetch(`/api/fs/download/${fileId}/progress`, {
+        method: "POST",
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error("Download failed");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            setDownloadStage(event.stage);
+            setDownloadEvents((prev) => [
+              ...prev,
+              { message: event.message, stage: event.stage },
+            ]);
+
+            if (event.stage === "read") {
+              setDownloadProgress({
+                current: (event.chunkIndex as number) + 1,
+                total: event.totalChunks as number,
+              });
+            } else if (event.stage === "start") {
+              setDownloadProgress((prev) => ({
+                ...prev,
+                total: event.totalChunks as number,
+              }));
+            } else if (event.stage === "complete") {
+              // Trigger binary download with token
+              const token = event.token as string;
+              const binaryRes = await fetch(
+                `/api/fs/download/${fileId}?token=${token}`,
+              );
+              if (binaryRes.ok) {
+                const blob = await binaryRes.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(url);
+              }
+              toast.success(`"${fileName}" downloaded`);
+              setTimeout(() => {
+                setDownloadOpen(false);
+                resetDownloadState();
+              }, 800);
+            } else if (event.stage === "error") {
+              toast.error(event.message as string);
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Download failed");
+    } finally {
+      setDownloading(false);
     }
   };
+
+  // Determine completed stages for the stepper
+  const stages = [
+    "checksum",
+    "split",
+    "distribute",
+    "write",
+    "replicate",
+    "complete",
+  ];
+  const stageLabels: Record<string, string> = {
+    checksum: "Compute Checksum",
+    split: "Split into Chunks",
+    distribute: "Assign to Nodes",
+    write: "Write to Nodes",
+    replicate: "Replicate Chunks",
+    complete: "Upload Complete",
+  };
+
+  const getStageStatus = (stage: string) => {
+    const doneStages: Record<string, string> = {
+      checksum: "checksum_done",
+      split: "split_done",
+      distribute: "distribute_done",
+      write: "replicate",
+      replicate: "replicate_done",
+      complete: "complete",
+    };
+    const currentIndex = stages.indexOf(uploadStage.replace(/_done$/, ""));
+    const stageIndex = stages.indexOf(stage);
+
+    if (uploadStage === "complete" || uploadStage === doneStages[stage])
+      return "done";
+    if (stageIndex < currentIndex) return "done";
+    if (uploadStage === stage || uploadStage === stage + "_done")
+      return "active";
+    return "pending";
+  };
+
+  const progressPercent =
+    uploadProgress.total > 0
+      ? Math.round((uploadProgress.current / uploadProgress.total) * 100)
+      : 0;
+
+  // Download stage stepper logic
+  const dlStages = ["start", "read", "verify", "reassemble", "complete"];
+  const dlStageLabels: Record<string, string> = {
+    start: "Locating Chunks",
+    read: "Reading Chunks",
+    verify: "Verifying Integrity",
+    reassemble: "Reassembling File",
+    complete: "Download Ready",
+  };
+
+  const getDlStageStatus = (stage: string) => {
+    const doneMap: Record<string, string> = {
+      start: "read",
+      read: "verify",
+      verify: "reassemble",
+      reassemble: "verify_done",
+      complete: "complete",
+    };
+    const currentIndex = dlStages.indexOf(downloadStage.replace(/_done$/, ""));
+    const stageIndex = dlStages.indexOf(stage);
+
+    if (downloadStage === "complete") return "done";
+    if (downloadStage === "verify_done" && stageIndex <= 3) return "done";
+    if (stageIndex < currentIndex) return "done";
+    if (
+      downloadStage === stage ||
+      downloadStage === stage + "_done" ||
+      downloadStage === doneMap[stage]
+    )
+      return "active";
+    return "pending";
+  };
+
+  const dlProgressPercent =
+    downloadProgress.total > 0
+      ? Math.round((downloadProgress.current / downloadProgress.total) * 100)
+      : 0;
 
   return (
     <div>
@@ -149,68 +377,72 @@ export default function FilesPage() {
           </p>
         </div>
 
-        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <Dialog
+          open={uploadOpen}
+          onOpenChange={(open) => {
+            if (!uploading) {
+              setUploadOpen(open);
+              if (!open) resetUploadState();
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2 text-xs">
               <Upload className="h-3.5 w-3.5" />
               Upload File
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-sm">
                 Upload to Constellation
               </DialogTitle>
             </DialogHeader>
-            <div className="mt-2 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Distribution Strategy
-                </label>
-                <Select
-                  value={strategy}
-                  onValueChange={setStrategy}
-                  disabled={uploading}
+
+            {!uploading ? (
+              /* ─── Pre-upload: strategy + drop zone ─── */
+              <div className="mt-2 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    Distribution Strategy
+                  </label>
+                  <Select value={strategy} onValueChange={setStrategy}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select a strategy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="round-robin" className="text-xs">
+                        Round-Robin (Sequential)
+                      </SelectItem>
+                      <SelectItem value="weighted" className="text-xs">
+                        Weighted (Load Balanced)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
+                    dragOver ? "border-primary bg-primary/5" : "border-border"
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleUpload(file);
+                  }}
                 >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select a strategy" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="round-robin" className="text-xs">
-                      Round-Robin (Sequential)
-                    </SelectItem>
-                    <SelectItem value="weighted" className="text-xs">
-                      Weighted (Load Balanced)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
-                  dragOver ? "border-primary bg-primary/5" : "border-border"
-                }`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleUpload(file);
-                }}
-              >
-                <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
-                <p className="mb-1 text-sm font-medium">
-                  {uploading
-                    ? "Distributing across nodes..."
-                    : "Drop file here or click to browse"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  File will be chunked and distributed
-                </p>
-                {!uploading && (
+                  <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="mb-1 text-sm font-medium">
+                    Drop file here or click to browse
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    File will be chunked and distributed
+                  </p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -227,8 +459,266 @@ export default function FilesPage() {
                   >
                     Browse Files
                   </Button>
+                </div>
+              </div>
+            ) : (
+              /* ─── Upload in progress: animated stepper ─── */
+              <div className="mt-2 space-y-4">
+                {/* Stage stepper */}
+                <div className="space-y-2">
+                  {stages
+                    .filter((s) => s !== "complete")
+                    .map((stage) => {
+                      const status = getStageStatus(stage);
+                      return (
+                        <motion.div
+                          key={stage}
+                          className="flex items-center gap-3"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <div className="flex h-5 w-5 items-center justify-center">
+                            {status === "done" ? (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[8px] text-white"
+                              >
+                                ✓
+                              </motion.div>
+                            ) : status === "active" ? (
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: "linear",
+                                }}
+                                className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
+                              />
+                            ) : (
+                              <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />
+                            )}
+                          </div>
+                          <span
+                            className={`text-xs ${
+                              status === "done"
+                                ? "text-muted-foreground"
+                                : status === "active"
+                                  ? "font-medium text-foreground"
+                                  : "text-muted-foreground/50"
+                            }`}
+                          >
+                            {stageLabels[stage]}
+                            {stage === "write" &&
+                              uploadProgress.total > 0 &&
+                              status === "active" && (
+                                <span className="ml-1.5 font-mono text-primary">
+                                  {uploadProgress.current}/
+                                  {uploadProgress.total}
+                                </span>
+                              )}
+                          </span>
+                        </motion.div>
+                      );
+                    })}
+                </div>
+
+                {/* Progress bar for chunk writes */}
+                {uploadProgress.total > 0 && (
+                  <div>
+                    <Progress value={progressPercent} className="h-2" />
+                    <p className="mt-1 text-right text-[10px] text-muted-foreground">
+                      {progressPercent}% • {uploadProgress.current} of{" "}
+                      {uploadProgress.total} chunks
+                    </p>
+                  </div>
+                )}
+
+                {/* Live feed */}
+                {uploadEvents.length > 0 && (
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
+                      LIVE FEED
+                    </p>
+                    <ScrollArea className="h-32 rounded-md border bg-muted/30 p-2">
+                      <AnimatePresence>
+                        {uploadEvents
+                          .filter(
+                            (e) =>
+                              e.stage === "write" ||
+                              e.stage === "checksum_done" ||
+                              e.stage === "split_done" ||
+                              e.stage === "distribute_done" ||
+                              e.stage === "replicate_done" ||
+                              e.stage === "complete",
+                          )
+                          .slice(-20)
+                          .map((event, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="flex items-center gap-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
+                            >
+                              <span className="text-primary">→</span>
+                              {event.message}
+                            </motion.div>
+                          ))}
+                      </AnimatePresence>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {/* Complete check */}
+                {uploadStage === "complete" && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 py-3 text-xs font-medium text-green-500"
+                  >
+                    <span className="text-base">✓</span> Upload Complete
+                  </motion.div>
                 )}
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Download progress dialog */}
+        <Dialog
+          open={downloadOpen}
+          onOpenChange={(open) => {
+            if (!downloading) {
+              setDownloadOpen(open);
+              if (!open) resetDownloadState();
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-sm">
+                Downloading &quot;{downloadFileName}&quot;
+              </DialogTitle>
+            </DialogHeader>
+            <div className="mt-2 space-y-4">
+              {/* Stage stepper */}
+              <div className="space-y-2">
+                {dlStages
+                  .filter((s) => s !== "complete")
+                  .map((stage) => {
+                    const status = getDlStageStatus(stage);
+                    return (
+                      <motion.div
+                        key={stage}
+                        className="flex items-center gap-3"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center">
+                          {status === "done" ? (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[8px] text-white"
+                            >
+                              ✓
+                            </motion.div>
+                          ) : status === "active" ? (
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{
+                                duration: 1,
+                                repeat: Infinity,
+                                ease: "linear",
+                              }}
+                              className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
+                            />
+                          ) : (
+                            <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs ${
+                            status === "done"
+                              ? "text-muted-foreground"
+                              : status === "active"
+                                ? "font-medium text-foreground"
+                                : "text-muted-foreground/50"
+                          }`}
+                        >
+                          {dlStageLabels[stage]}
+                          {stage === "read" &&
+                            downloadProgress.total > 0 &&
+                            status === "active" && (
+                              <span className="ml-1.5 font-mono text-primary">
+                                {downloadProgress.current}/
+                                {downloadProgress.total}
+                              </span>
+                            )}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+              </div>
+
+              {/* Progress bar */}
+              {downloadProgress.total > 0 && (
+                <div>
+                  <Progress value={dlProgressPercent} className="h-2" />
+                  <p className="mt-1 text-right text-[10px] text-muted-foreground">
+                    {dlProgressPercent}% • {downloadProgress.current} of{" "}
+                    {downloadProgress.total} chunks
+                  </p>
+                </div>
+              )}
+
+              {/* Live feed */}
+              {downloadEvents.length > 0 && (
+                <div>
+                  <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
+                    LIVE FEED
+                  </p>
+                  <ScrollArea className="h-32 rounded-md border bg-muted/30 p-2">
+                    <AnimatePresence>
+                      {downloadEvents
+                        .filter(
+                          (e) =>
+                            e.stage === "read" ||
+                            e.stage === "verify" ||
+                            e.stage === "verify_done" ||
+                            e.stage === "reassemble" ||
+                            e.stage === "complete",
+                        )
+                        .slice(-20)
+                        .map((event, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex items-center gap-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
+                          >
+                            <span className="text-primary">←</span>
+                            {event.message}
+                          </motion.div>
+                        ))}
+                    </AnimatePresence>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {/* Complete */}
+              {downloadStage === "complete" && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 py-3 text-xs font-medium text-green-500"
+                >
+                  <span className="text-base">✓</span> Download Complete
+                </motion.div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
