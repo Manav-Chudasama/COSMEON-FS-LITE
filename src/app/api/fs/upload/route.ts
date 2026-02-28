@@ -29,6 +29,7 @@ import {
   encodeParityShards,
   createParityChunkMetadata,
   getErasureConfig,
+  buildMerkleTree,
 } from "@/lib/fs-lite";
 import { v4 as groupUuidv4 } from "uuid";
 
@@ -249,7 +250,19 @@ export async function POST(request: NextRequest) {
             emit({ stage: "replicate_done", message: "Replication complete" });
           }
 
-          // Stage 6: Save metadata
+          // Stage 6: Build Merkle tree
+          const dataChunkHashes = chunks
+            .filter((c) => !c.isParity)
+            .sort((a, b) => a.index - b.index)
+            .map((c) => c.hash);
+          const merkle = buildMerkleTree(dataChunkHashes);
+
+          emit({
+            stage: "merkle",
+            message: `Merkle tree built (depth ${merkle.depth}, root: ${merkle.root.slice(0, 12)}...)`,
+          });
+
+          // Stage 7: Save metadata
           const fsFile: FSFile = {
             fileId,
             originalName: fileName,
@@ -267,6 +280,8 @@ export async function POST(request: NextRequest) {
             version: 1,
             chunks,
             erasureCoded: isErasureCodingEnabled(),
+            merkleRoot: merkle.root,
+            merkleTree: merkle.tree,
           };
 
           await addFile(fsFile);

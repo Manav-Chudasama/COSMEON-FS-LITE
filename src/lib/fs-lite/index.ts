@@ -114,6 +114,14 @@ export {
   type ErasureGroup,
 } from "./erasure-coding";
 
+// ── Merkle Tree ──────────────────────────────
+export {
+  buildMerkleTree,
+  verifyMerkleRoot,
+  findCorruptedChunks,
+  type MerkleTraversalStep,
+} from "./merkle-tree";
+
 // ── Initialization ────────────────────────────
 import { connectDB } from "./db";
 import { initializeNodes } from "./node-manager";

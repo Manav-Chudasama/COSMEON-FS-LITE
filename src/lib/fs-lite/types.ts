@@ -108,6 +108,10 @@ export interface FSFile {
   chunks: FSChunk[];
   /** Whether this file uses erasure coding */
   erasureCoded?: boolean;
+  /** Merkle tree root hash (single integrity fingerprint) */
+  merkleRoot?: string;
+  /** Serialized Merkle tree (flat array, 1-indexed) */
+  merkleTree?: string[];
 }
 
 /** Represents a satellite node */
@@ -158,6 +162,10 @@ export interface IntegrityReport {
     passed: boolean;
     error?: string;
   }[];
+  /** Whether Merkle tree verification was used */
+  merkleVerified?: boolean;
+  /** Indices of chunks identified as corrupted via Merkle descent */
+  corruptedIndices?: number[];
 }
 
 /** Result of a rebalancing operation */

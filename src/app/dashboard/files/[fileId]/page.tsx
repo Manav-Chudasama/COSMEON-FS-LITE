@@ -14,6 +14,9 @@ import {
   Satellite,
   ChevronLeft,
   ChevronRight,
+  TreePine,
+  Search,
+  Hash,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +30,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import type { IntegrityReport } from "@/lib/fs-lite/types";
 
@@ -67,6 +77,11 @@ export default function FileDetailPage() {
   const [verifying, setVerifying] = useState(false);
   const [report, setReport] = useState<IntegrityReport | null>(null);
   const [verifyProgress, setVerifyProgress] = useState(0);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyStage, setVerifyStage] = useState("");
+  const [verifyEvents, setVerifyEvents] = useState<
+    { message: string; stage: string; match?: boolean }[]
+  >([]);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
@@ -84,30 +99,110 @@ export default function FileDetailPage() {
     setVerifying(true);
     setReport(null);
     setVerifyProgress(0);
-
-    // Simulate progressive verification
-    const interval = setInterval(() => {
-      setVerifyProgress((prev) => Math.min(prev + 15, 90));
-    }, 200);
+    setVerifyStage("");
+    setVerifyEvents([]);
+    setVerifyOpen(true);
 
     try {
       const res = await fetch(`/api/fs/integrity/${fileId}`);
-      const data = await res.json();
-      clearInterval(interval);
-      setVerifyProgress(100);
-      setReport(data);
+      if (!res.ok || !res.body) throw new Error("Request failed");
 
-      if (data.failedChunks === 0) {
-        toast.success("All chunks passed integrity check");
-      } else {
-        toast.error(`${data.failedChunks} chunks failed verification`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            setVerifyStage(event.stage);
+            setVerifyEvents((prev) => [...prev, event]);
+
+            if (event.stage === "hashing_progress" && event.total) {
+              setVerifyProgress(Math.round((event.current / event.total) * 40));
+            } else if (event.stage === "build_tree_done") {
+              setVerifyProgress(50);
+            } else if (event.stage === "root_check") {
+              setVerifyProgress(event.match ? 100 : 60);
+            } else if (event.stage === "descend") {
+              const descentProg =
+                event.level && event.depth
+                  ? 60 + Math.round((event.level / event.depth) * 30)
+                  : 70;
+              setVerifyProgress(descentProg);
+            } else if (event.stage === "complete") {
+              setVerifyProgress(100);
+              setReport(event.report);
+              if (event.report?.failedChunks === 0) {
+                toast.success("All chunks passed integrity check");
+              } else {
+                toast.error(
+                  `${event.report?.failedChunks} chunks failed verification`,
+                );
+              }
+            }
+          } catch {
+            // skip malformed lines
+          }
+        }
       }
     } catch {
-      clearInterval(interval);
       toast.error("Integrity check failed");
     } finally {
       setVerifying(false);
     }
+  };
+
+  // Stepper stages
+  const stages = ["hashing", "build_tree", "root_check", "descend", "complete"];
+  const stageLabels: Record<string, string> = {
+    hashing: "Hashing Chunks",
+    build_tree: "Building Merkle Tree",
+    root_check: "Root Hash Check",
+    descend: "Tree Descent",
+    complete: "Complete",
+  };
+  const stageIcons: Record<string, React.ReactNode> = {
+    hashing: <Hash className="h-3.5 w-3.5" />,
+    build_tree: <TreePine className="h-3.5 w-3.5" />,
+    root_check: <ShieldCheck className="h-3.5 w-3.5" />,
+    descend: <Search className="h-3.5 w-3.5" />,
+    complete: <CheckCircle2 className="h-3.5 w-3.5" />,
+  };
+
+  const getStageStatus = (stage: string) => {
+    const stageIndex = stages.indexOf(stage);
+    const currentRaw = verifyStage;
+    // Map sub-stages to parent
+    const mapped =
+      currentRaw === "hashing_progress" || currentRaw === "hashing_done"
+        ? "hashing"
+        : currentRaw === "build_tree_done"
+          ? "build_tree"
+          : currentRaw === "descend_start" || currentRaw === "leaf"
+            ? "descend"
+            : currentRaw;
+    const currentIndex = stages.indexOf(mapped);
+
+    if (mapped === "complete") return "done";
+    // Root check passed = skip descent
+    if (
+      stage === "descend" &&
+      verifyEvents.some((e) => e.stage === "root_check" && e.match)
+    ) {
+      return "skip";
+    }
+    if (stageIndex < currentIndex) return "done";
+    if (stageIndex === currentIndex) return "active";
+    return "pending";
   };
 
   const handleDownload = async () => {
@@ -189,23 +284,113 @@ export default function FileDetailPage() {
         </div>
       </div>
 
-      {/* Integrity progress */}
-      {verifying && (
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-        >
-          <Card>
-            <CardContent className="pt-6">
-              <p className="mb-2 text-xs text-muted-foreground">
-                Verifying chunks...
-              </p>
-              <Progress value={verifyProgress} className="h-2" />
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+      {/* Merkle Integrity Check Dialog */}
+      <Dialog
+        open={verifyOpen}
+        onOpenChange={(open) => {
+          if (!verifying) {
+            setVerifyOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <TreePine className="h-4 w-4 text-primary" />
+              Merkle Integrity Check
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Stepper */}
+          <div className="space-y-2">
+            {stages
+              .filter((s) => getStageStatus(s) !== "skip")
+              .map((stage) => {
+                const status = getStageStatus(stage);
+                return (
+                  <div key={stage} className="flex items-center gap-3 text-xs">
+                    <div
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border ${
+                        status === "done"
+                          ? "border-green-500 bg-green-500/10 text-green-500"
+                          : status === "active"
+                            ? "border-primary bg-primary/10 text-primary animate-pulse"
+                            : "border-muted-foreground/30 text-muted-foreground/30"
+                      }`}
+                    >
+                      {status === "done" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : (
+                        stageIcons[stage]
+                      )}
+                    </div>
+                    <span
+                      className={
+                        status === "pending"
+                          ? "text-muted-foreground/40"
+                          : status === "active"
+                            ? "text-foreground font-medium"
+                            : "text-muted-foreground"
+                      }
+                    >
+                      {stageLabels[stage]}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+
+          {/* Progress */}
+          <Progress value={verifyProgress} className="h-2" />
+
+          {/* Event log */}
+          <ScrollArea className="h-40 rounded-md border bg-muted/20 p-3">
+            <div className="space-y-1">
+              {verifyEvents.map((event, i) => (
+                <div
+                  key={i}
+                  className={`text-[10px] font-mono ${
+                    event.stage === "leaf"
+                      ? "text-destructive font-semibold"
+                      : event.match === false
+                        ? "text-yellow-500"
+                        : event.match === true
+                          ? "text-green-500"
+                          : "text-muted-foreground"
+                  }`}
+                >
+                  {event.message}
+                </div>
+              ))}
+              {verifying && (
+                <div className="text-[10px] text-muted-foreground animate-pulse">
+                  ...
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Result summary */}
+          {report && (
+            <div
+              className={`rounded-md border p-3 ${
+                report.failedChunks === 0
+                  ? "border-green-500/30 bg-green-500/5"
+                  : "border-destructive/30 bg-destructive/5"
+              }`}
+            >
+              <div className="flex items-center gap-2 text-xs font-medium">
+                {report.failedChunks === 0 ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-destructive" />
+                )}
+                {report.passedChunks}/{report.totalChunks} chunks passed
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Integrity report */}
       {report && (
@@ -395,14 +580,13 @@ export default function FileDetailPage() {
                 )
                   .filter((p) => {
                     const total = Math.ceil(file.chunks.length / PAGE_SIZE);
-                    return (
-                      p === 1 ||
-                      p === total ||
-                      Math.abs(p - page) <= 1
-                    );
+                    return p === 1 || p === total || Math.abs(p - page) <= 1;
                   })
                   .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                    if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) {
+                    if (
+                      idx > 0 &&
+                      (p as number) - (arr[idx - 1] as number) > 1
+                    ) {
                       acc.push("...");
                     }
                     acc.push(p);
@@ -434,7 +618,10 @@ export default function FileDetailPage() {
                   className="h-7 w-7 p-0"
                   onClick={() =>
                     setPage((p) =>
-                      Math.min(Math.ceil(file.chunks.length / PAGE_SIZE), p + 1),
+                      Math.min(
+                        Math.ceil(file.chunks.length / PAGE_SIZE),
+                        p + 1,
+                      ),
                     )
                   }
                   disabled={page === Math.ceil(file.chunks.length / PAGE_SIZE)}
