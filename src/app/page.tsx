@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
+import dynamic from "next/dynamic";
 import {
   Rocket,
   Layers,
@@ -11,6 +12,8 @@ import {
   Satellite,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const Orb = dynamic(() => import("@/components/Orb"), { ssr: false });
 
 const features = [
   {
@@ -81,6 +84,20 @@ export default function LandingPage() {
             }}
           />
         ))}
+      </div>
+
+      {/* Orb — glowing ring backdrop behind hero text */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 z-5"
+        style={{ top: "50px", width: "680px", height: "680px", opacity: 0.68 }}
+      >
+        <Orb
+          hoverIntensity={2}
+          rotateOnHover
+          hue={0}
+          forceHoverState={false}
+          backgroundColor="#000000"
+        />
       </div>
 
       {/* Header */}
