@@ -30,9 +30,39 @@ import {
   storageClient,
   updateNodeUsage,
 } from "@/lib/fs-lite";
+import { uploadProtection } from "@/lib/arcjet";
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Arcjet Protection ────────────────────────────────────
+    if (process.env.ARCJET_KEY) {
+      const decision = await uploadProtection.protect(request, {
+        requested: 1,
+      });
+      if (decision.isDenied()) {
+        const reason = decision.reason.isRateLimit()
+          ? "Rate limit exceeded"
+          : decision.reason.isBot()
+            ? "Bot traffic detected"
+            : "Request blocked by security policy";
+        return NextResponse.json(
+          { error: reason, arcjet: true },
+          {
+            status: decision.reason.isRateLimit() ? 429 : 403,
+            headers: {
+              "x-arcjet-decision": "DENY",
+              "x-arcjet-reason": decision.reason.isRateLimit()
+                ? "RATE_LIMIT"
+                : decision.reason.isBot()
+                  ? "BOT"
+                  : "SHIELD",
+            },
+          },
+        );
+      }
+    }
+    // ────────────────────────────────────────────────────────
+
     await initEngine();
 
     // Parse multipart form data

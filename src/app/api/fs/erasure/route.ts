@@ -8,6 +8,7 @@ import {
   initEngine,
   setErasureCodingEnabled,
 } from "@/lib/fs-lite";
+import { deleteProtection } from "@/lib/arcjet";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,33 @@ export async function GET() {
 /** POST — Toggle erasure coding on/off */
 export async function POST(request: NextRequest) {
   try {
+    // ── Arcjet Protection ───────────────────────────────────
+    if (process.env.ARCJET_KEY) {
+      const decision = await deleteProtection.protect(request, {
+        requested: 1,
+      });
+      if (decision.isDenied()) {
+        return NextResponse.json(
+          {
+            error: decision.reason.isRateLimit()
+              ? "Rate limit exceeded"
+              : "Request blocked by security policy",
+            arcjet: true,
+          },
+          {
+            status: decision.reason.isRateLimit() ? 429 : 403,
+            headers: {
+              "x-arcjet-decision": "DENY",
+              "x-arcjet-reason": decision.reason.isRateLimit()
+                ? "RATE_LIMIT"
+                : "SHIELD",
+            },
+          },
+        );
+      }
+    }
+    // ────────────────────────────────────────────────────────
+
     await initEngine();
     const body = await request.json();
     const { enabled } = body as { enabled: boolean };

@@ -31,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import { AnimatedShinyText } from "@/components/ui/animated-shiny-text";
 import { MagicCard } from "@/components/ui/magic-card";
 import { Marquee } from "@/components/ui/marquee";
-import { ShimmerButton } from "@/components/ui/shimmer-button";
 import RippleGrid from "@/components/RippleGrid";
 import { OrbitingCircles } from "@/components/ui/orbiting-circles";
 

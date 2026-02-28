@@ -7,6 +7,7 @@ import {
   Moon,
   Satellite,
   ScrollText,
+  ShieldCheck,
   Sun,
 } from "lucide-react";
 import Link from "next/link";
@@ -52,6 +53,11 @@ const navItems = [
     title: "Analytics",
     href: "/dashboard/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Security",
+    href: "/dashboard/security",
+    icon: ShieldCheck,
   },
 ];
 

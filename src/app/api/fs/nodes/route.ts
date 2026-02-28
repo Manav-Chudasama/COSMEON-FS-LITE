@@ -4,6 +4,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { createNode, getNodes, initEngine } from "@/lib/fs-lite";
+import { nodeMutationProtection } from "@/lib/arcjet";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,33 @@ export async function GET() {
 /** POST — Create a new satellite node */
 export async function POST(request: NextRequest) {
   try {
+    // ── Arcjet Protection ───────────────────────────────────
+    if (process.env.ARCJET_KEY) {
+      const decision = await nodeMutationProtection.protect(request, {
+        requested: 1,
+      });
+      if (decision.isDenied()) {
+        return NextResponse.json(
+          {
+            error: decision.reason.isRateLimit()
+              ? "Rate limit exceeded"
+              : "Request blocked by security policy",
+            arcjet: true,
+          },
+          {
+            status: decision.reason.isRateLimit() ? 429 : 403,
+            headers: {
+              "x-arcjet-decision": "DENY",
+              "x-arcjet-reason": decision.reason.isRateLimit()
+                ? "RATE_LIMIT"
+                : "SHIELD",
+            },
+          },
+        );
+      }
+    }
+    // ────────────────────────────────────────────────────────
+
     await initEngine();
     const body = await request.json();
     const { name, capacityBytes, latencyMs } = body;
