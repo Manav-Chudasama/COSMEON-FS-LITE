@@ -12,6 +12,8 @@ import {
   XCircle,
   Loader2,
   Satellite,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,6 +67,8 @@ export default function FileDetailPage() {
   const [verifying, setVerifying] = useState(false);
   const [report, setReport] = useState<IntegrityReport | null>(null);
   const [verifyProgress, setVerifyProgress] = useState(0);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   useEffect(() => {
     fetch(`/api/fs/files/${fileId}`)
@@ -271,7 +275,12 @@ export default function FileDetailPage() {
       {/* Chunk distribution table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Chunk Distribution</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">Chunk Distribution</CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {file.chunks.length} chunks total
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -288,6 +297,7 @@ export default function FileDetailPage() {
             <TableBody>
               {file.chunks
                 .sort((a, b) => a.index - b.index)
+                .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
                 .map((chunk, i) => {
                   const result = report?.results.find(
                     (r) => r.chunkId === chunk.chunkId,
@@ -299,7 +309,7 @@ export default function FileDetailPage() {
                       className="border-b"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.03 }}
+                      transition={{ delay: i * 0.02 }}
                     >
                       <TableCell className="text-xs font-mono">
                         {chunk.index}
@@ -360,6 +370,80 @@ export default function FileDetailPage() {
                 })}
             </TableBody>
           </Table>
+
+          {/* Pagination controls */}
+          {file.chunks.length > PAGE_SIZE && (
+            <div className="mt-4 flex items-center justify-between border-t pt-4">
+              <span className="text-xs text-muted-foreground">
+                Showing {(page - 1) * PAGE_SIZE + 1}–
+                {Math.min(page * PAGE_SIZE, file.chunks.length)} of{" "}
+                {file.chunks.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                {Array.from(
+                  { length: Math.ceil(file.chunks.length / PAGE_SIZE) },
+                  (_, i) => i + 1,
+                )
+                  .filter((p) => {
+                    const total = Math.ceil(file.chunks.length / PAGE_SIZE);
+                    return (
+                      p === 1 ||
+                      p === total ||
+                      Math.abs(p - page) <= 1
+                    );
+                  })
+                  .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) {
+                      acc.push("...");
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) =>
+                    p === "..." ? (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className="px-1 text-xs text-muted-foreground"
+                      >
+                        ...
+                      </span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={page === p ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 min-w-7 px-2 text-xs"
+                        onClick={() => setPage(p as number)}
+                      >
+                        {p}
+                      </Button>
+                    ),
+                  )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() =>
+                    setPage((p) =>
+                      Math.min(Math.ceil(file.chunks.length / PAGE_SIZE), p + 1),
+                    )
+                  }
+                  disabled={page === Math.ceil(file.chunks.length / PAGE_SIZE)}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
