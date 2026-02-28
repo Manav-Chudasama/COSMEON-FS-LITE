@@ -2,7 +2,7 @@
 // COSMEON FS-LITE — Satellite Node Manager
 // ============================================
 
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import { connectDB, NodeModel } from "./db";
@@ -37,8 +37,34 @@ export async function initializeNodes(
   try {
     await connectDB();
 
-    const existingNodes = await NodeModel.find({}).lean();
+    // 1. Check local file system for node folders
+    const nodesDirPath = join(process.cwd(), dataDir, "nodes");
+    let localFolderIds: string[] = [];
 
+    try {
+      const dirents = await readdir(nodesDirPath, { withFileTypes: true });
+      localFolderIds = dirents
+        .filter((dirent) => dirent.isDirectory())
+        .map((dirent) => dirent.name);
+    } catch {
+      // Directory doesn't exist yet, which is fine
+    }
+
+    let existingNodes: any[] = [];
+
+    // 2. Query DB for matching node records
+    if (localFolderIds.length > 0) {
+      existingNodes = await NodeModel.find({
+        nodeId: { $in: localFolderIds },
+      }).lean();
+    }
+
+    // 3. Fallback: If no local folders match, load any nodes from DB
+    if (existingNodes.length === 0) {
+      existingNodes = await NodeModel.find({}).lean();
+    }
+
+    // 4. Load found nodes into cache and ensure folders exist
     if (existingNodes.length > 0) {
       // Load from DB into cache
       for (const doc of existingNodes) {
@@ -58,7 +84,7 @@ export async function initializeNodes(
       initialized = true;
       return;
     }
-  } catch {
+  } catch (error) {
     // MongoDB not available, continue with in-memory only
     if (nodesCache.size > 0) {
       initialized = true;
