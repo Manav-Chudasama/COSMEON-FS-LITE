@@ -28,6 +28,9 @@ export type LogEventType =
   | "CACHE_MISS"
   | "CACHE_EVICT";
 
+/** Chunking strategy */
+export type ChunkingStrategy = "fixed" | "cdc";
+
 /** Configuration for the FS-Lite engine */
 export interface FSConfig {
   chunkSizeBytes: number;
@@ -38,6 +41,19 @@ export interface FSConfig {
   dataDir: string;
   distributionStrategy: DistributionStrategy;
   integrityScanIntervalMs: number;
+  chunking: {
+    strategy: ChunkingStrategy;
+    /** Minimum chunk size in bytes (CDC only) */
+    minSize: number;
+    /** Target average chunk size in bytes (CDC only) */
+    avgSize: number;
+    /** Maximum chunk size in bytes (CDC only) */
+    maxSize: number;
+    /** Rolling hash window size in bytes (CDC only) */
+    windowSize: number;
+    /** Mask bits for boundary detection -- lower = larger avg chunks (CDC only) */
+    maskBits: number;
+  };
 }
 
 /** Represents a single chunk of a file */
@@ -45,6 +61,8 @@ export interface FSChunk {
   chunkId: string;
   fileId: string;
   index: number;
+  /** Byte offset of this chunk in the original file */
+  offset: number;
   size: number;
   hash: string;
   nodeId: string;
@@ -164,4 +182,12 @@ export const DEFAULT_CONFIG: FSConfig = {
   dataDir: ".fs-lite-data",
   distributionStrategy: "round-robin",
   integrityScanIntervalMs: 60 * 1000, // 60 seconds
+  chunking: {
+    strategy: "fixed",
+    minSize: 128 * 1024,  // 128 KB min
+    avgSize: 256 * 1024,  // 256 KB target
+    maxSize: 512 * 1024,  // 512 KB max
+    windowSize: 48,       // rolling hash window
+    maskBits: 18,         // ~256 KB average (2^18 = 262144)
+  },
 };

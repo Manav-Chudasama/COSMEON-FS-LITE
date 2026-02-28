@@ -19,7 +19,7 @@ import {
   simulateLatency,
   DEFAULT_CONFIG,
 } from "@/lib/fs-lite";
-import type { FSFile, FSChunk, UploadResult } from "@/lib/fs-lite";
+import type { FSFile, FSChunk, UploadResult, ChunkingStrategy } from "@/lib/fs-lite";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
     const strategy =
       (formData.get("strategy") as any) || DEFAULT_CONFIG.distributionStrategy;
+    const chunkingStrategy =
+      (formData.get("chunkingStrategy") as ChunkingStrategy | null) ??
+      DEFAULT_CONFIG.chunking.strategy;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -65,12 +68,13 @@ export async function POST(request: NextRequest) {
           });
 
           // Stage 2: Split
-          emit({ stage: "split", message: "Splitting file into chunks..." });
-          const rawChunks = splitFile(buffer, fileId);
+          emit({ stage: "split", message: `Splitting file into chunks (${chunkingStrategy.toUpperCase()})...` });
+          const rawChunks = splitFile(buffer, fileId, chunkingStrategy);
           const totalChunks = rawChunks.length;
+          const avgKB = Math.round(buffer.length / totalChunks / 1024);
           emit({
             stage: "split_done",
-            message: `Split into ${totalChunks} chunks (${(DEFAULT_CONFIG.chunkSizeBytes / 1024).toFixed(0)} KB each)`,
+            message: `Split into ${totalChunks} chunks (~${avgKB} KB avg, ${chunkingStrategy.toUpperCase()})`,
             totalChunks,
           });
 
@@ -97,11 +101,8 @@ export async function POST(request: NextRequest) {
 
           for (const chunk of chunks) {
             const chunkData = buffer.subarray(
-              chunk.index * DEFAULT_CONFIG.chunkSizeBytes,
-              Math.min(
-                (chunk.index + 1) * DEFAULT_CONFIG.chunkSizeBytes,
-                buffer.length,
-              ),
+              chunk.offset,
+              chunk.offset + chunk.size,
             );
 
             const nodeName = nodeMap.get(chunk.nodeId) || chunk.nodeId;
@@ -144,7 +145,10 @@ export async function POST(request: NextRequest) {
             mimeType: fileMime,
             totalSize: buffer.length,
             chunkCount: chunks.length,
-            chunkSize: DEFAULT_CONFIG.chunkSizeBytes,
+            chunkSize:
+              chunkingStrategy === "cdc"
+                ? Math.round(buffer.length / chunks.length)
+                : DEFAULT_CONFIG.chunkSizeBytes,
             checksum,
             uploadedAt: new Date().toISOString(),
             version: 1,

@@ -65,6 +65,7 @@ export default function FilesPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [strategy, setStrategy] = useState("round-robin");
+  const [chunkingStrategy, setChunkingStrategy] = useState<"fixed" | "cdc">("fixed");
 
   // Streaming upload progress state
   const [uploadStage, setUploadStage] = useState<string>("");
@@ -116,6 +117,7 @@ export default function FilesPage() {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("strategy", strategy);
+    formData.append("chunkingStrategy", chunkingStrategy);
 
     try {
       const res = await fetch("/api/fs/upload", {
@@ -425,6 +427,24 @@ export default function FilesPage() {
                       </SelectItem>
                       <SelectItem value="crush" className="text-xs">
                         CRUSH (Rack-Aware Hashing)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    Chunking Strategy
+                  </label>
+                  <Select value={chunkingStrategy} onValueChange={(v) => setChunkingStrategy(v as "fixed" | "cdc")}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select chunking" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed" className="text-xs">
+                        Fixed-Size (256 KB blocks)
+                      </SelectItem>
+                      <SelectItem value="cdc" className="text-xs">
+                        CDC (Content-Defined, 128–512 KB)
                       </SelectItem>
                     </SelectContent>
                   </Select>

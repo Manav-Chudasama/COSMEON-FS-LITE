@@ -11,6 +11,7 @@ export type {
   FSConfig,
   NodeStatus,
   DistributionStrategy,
+  ChunkingStrategy,
   LogEventType,
   IntegrityReport,
   RebalanceReport,
@@ -27,6 +28,8 @@ export { connectDB, isDBConnected, FileModel, NodeModel } from "./db";
 // ── Core Modules ──────────────────────────────
 export {
   splitFile,
+  splitFileFixed,
+  splitFileCDC,
   computeFileChecksum,
   reassembleFile,
   extractChunkData,
