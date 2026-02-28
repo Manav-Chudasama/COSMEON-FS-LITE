@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Satellite,
   Power,
   PowerOff,
-  AlertTriangle,
   HardDrive,
   Clock,
   Plus,
@@ -15,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +58,22 @@ export default function NodesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newNodeName, setNewNodeName] = useState("");
 
+  // Rebalance dialog state
+  const [rebalancing, setRebalancing] = useState(false);
+  const [rebalanceOpen, setRebalanceOpen] = useState(false);
+  const [rebalanceNodeName, setRebalanceNodeName] = useState("");
+  const [rebalanceAction, setRebalanceAction] = useState<
+    "failure" | "recovery"
+  >("failure");
+  const [rebalanceStage, setRebalanceStage] = useState("");
+  const [rebalanceProgress, setRebalanceProgress] = useState({
+    current: 0,
+    total: 0,
+  });
+  const [rebalanceEvents, setRebalanceEvents] = useState<
+    { message: string; stage: string }[]
+  >([]);
+
   const fetchNodes = useCallback(() => {
     fetch("/api/fs/nodes")
       .then((res) => res.json())
@@ -72,30 +88,105 @@ export default function NodesPage() {
     fetchNodes();
   }, [fetchNodes]);
 
-  const toggleStatus = async (nodeId: string, currentStatus: NodeStatus) => {
+  const resetRebalanceState = () => {
+    setRebalanceStage("");
+    setRebalanceProgress({ current: 0, total: 0 });
+    setRebalanceEvents([]);
+    setRebalanceNodeName("");
+  };
+
+  const toggleStatus = async (
+    nodeId: string,
+    currentStatus: NodeStatus,
+    nodeName: string,
+  ) => {
     const newStatus: NodeStatus =
       currentStatus === "online" ? "offline" : "online";
 
+    setRebalancing(true);
+    resetRebalanceState();
+    setRebalanceNodeName(nodeName);
+    setRebalanceAction(newStatus === "offline" ? "failure" : "recovery");
+    setRebalanceOpen(true);
+
     try {
-      const res = await fetch(`/api/fs/nodes/${nodeId}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/fs/nodes/${nodeId}/rebalance`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
 
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      if (!res.ok || !res.body) {
+        throw new Error("Rebalance failed");
+      }
 
-      toast.success(`Node ${data.node.name} is now ${newStatus}`, {
-        description:
-          data.rebalanceReport?.movedChunks?.length > 0
-            ? `${data.rebalanceReport.movedChunks.length} chunks rebalanced`
-            : undefined,
-      });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            setRebalanceStage(event.stage);
+
+            if (event.message) {
+              setRebalanceEvents((prev) => [
+                ...prev,
+                { message: event.message, stage: event.stage },
+              ]);
+            }
+
+            if (event.stage === "migrate") {
+              setRebalanceProgress({
+                current: event.chunkIndex as number,
+                total: event.totalChunks as number,
+              });
+            } else if (event.stage === "start") {
+              setRebalanceProgress((prev) => ({
+                ...prev,
+                total: event.totalChunks as number,
+              }));
+            } else if (event.stage === "complete") {
+              setRebalanceProgress((prev) => ({
+                ...prev,
+                current: prev.total,
+              }));
+
+              // Refresh nodes after completion
+              fetchNodes();
+
+              toast.success(
+                `${newStatus === "offline" ? "Failure" : "Recovery"} simulation complete`,
+                { description: event.message as string },
+              );
+
+              setTimeout(() => {
+                setRebalanceOpen(false);
+                resetRebalanceState();
+              }, 1200);
+            } else if (event.stage === "error") {
+              toast.error(event.message as string);
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Rebalance failed");
+    } finally {
+      setRebalancing(false);
+      // Final refresh to ensure latest state
       fetchNodes();
-    } catch {
-      toast.error("Failed to update node status");
     }
   };
 
@@ -118,6 +209,39 @@ export default function NodesPage() {
       toast.error("Failed to create node");
     }
   };
+
+  // Rebalance stepper stages
+  const rbStages = ["status_changed", "migrate", "complete"];
+  const rbStageLabels: Record<string, string> = {
+    status_changed:
+      rebalanceAction === "failure" ? "Taking Offline" : "Bringing Online",
+    migrate:
+      rebalanceAction === "failure"
+        ? "Migrating Chunks"
+        : "Redistributing Chunks",
+    complete: "Rebalance Complete",
+  };
+
+  const getRbStageStatus = (stage: string) => {
+    const stageIndex = rbStages.indexOf(stage);
+    const currentIndex = rbStages.indexOf(rebalanceStage);
+
+    // "report" stage means complete is done
+    if (rebalanceStage === "report" || rebalanceStage === "complete")
+      return "done";
+    if (rebalanceStage === "warning") {
+      // warnings come during migrate phase
+      return stageIndex <= 1 ? "active" : "pending";
+    }
+    if (stageIndex < currentIndex) return "done";
+    if (stageIndex === currentIndex) return "active";
+    return "pending";
+  };
+
+  const rbProgressPercent =
+    rebalanceProgress.total > 0
+      ? Math.round((rebalanceProgress.current / rebalanceProgress.total) * 100)
+      : 0;
 
   if (loading) {
     return (
@@ -175,6 +299,157 @@ export default function NodesPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Rebalance progress dialog */}
+      <Dialog
+        open={rebalanceOpen}
+        onOpenChange={(open) => {
+          if (!rebalancing) {
+            setRebalanceOpen(open);
+            if (!open) resetRebalanceState();
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              {rebalanceAction === "failure"
+                ? `Simulating Failure — "${rebalanceNodeName}"`
+                : `Recovering — "${rebalanceNodeName}"`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 space-y-4">
+            {/* Stage stepper */}
+            <div className="space-y-2">
+              {rbStages
+                .filter((s) => s !== "complete")
+                .map((stage) => {
+                  const status = getRbStageStatus(stage);
+                  return (
+                    <motion.div
+                      key={stage}
+                      className="flex items-center gap-3"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="flex h-5 w-5 items-center justify-center">
+                        {status === "done" ? (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[8px] text-white"
+                          >
+                            ✓
+                          </motion.div>
+                        ) : status === "active" ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{
+                              duration: 1,
+                              repeat: Infinity,
+                              ease: "linear",
+                            }}
+                            className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
+                          />
+                        ) : (
+                          <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs ${
+                          status === "done"
+                            ? "text-muted-foreground"
+                            : status === "active"
+                              ? "font-medium text-foreground"
+                              : "text-muted-foreground/50"
+                        }`}
+                      >
+                        {rbStageLabels[stage]}
+                        {stage === "migrate" &&
+                          rebalanceProgress.total > 0 &&
+                          status === "active" && (
+                            <span className="ml-1.5 font-mono text-primary">
+                              {rebalanceProgress.current}/
+                              {rebalanceProgress.total}
+                            </span>
+                          )}
+                      </span>
+                    </motion.div>
+                  );
+                })}
+            </div>
+
+            {/* Progress bar */}
+            {rebalanceProgress.total > 0 && (
+              <div>
+                <Progress value={rbProgressPercent} className="h-2" />
+                <p className="mt-1 text-right text-[10px] text-muted-foreground">
+                  {rbProgressPercent}% • {rebalanceProgress.current} of{" "}
+                  {rebalanceProgress.total} chunks
+                </p>
+              </div>
+            )}
+
+            {/* Live feed */}
+            {rebalanceEvents.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
+                  LIVE FEED
+                </p>
+                <ScrollArea className="h-36 rounded-md border bg-muted/30 p-2">
+                  <AnimatePresence>
+                    {rebalanceEvents
+                      .filter(
+                        (e) =>
+                          e.stage === "migrate" ||
+                          e.stage === "warning" ||
+                          e.stage === "complete" ||
+                          e.stage === "status_changed",
+                      )
+                      .slice(-30)
+                      .map((event, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`flex items-center gap-1.5 py-0.5 text-[10px] font-mono ${
+                            event.stage === "warning"
+                              ? "text-yellow-500"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          <span className="text-primary">
+                            {event.stage === "warning" ? "⚠" : "↔"}
+                          </span>
+                          {event.message}
+                        </motion.div>
+                      ))}
+                  </AnimatePresence>
+                </ScrollArea>
+              </div>
+            )}
+
+            {/* Complete */}
+            {(rebalanceStage === "complete" || rebalanceStage === "report") && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-xs font-medium ${
+                  rebalanceAction === "failure"
+                    ? "border-orange-500/30 bg-orange-500/10 text-orange-500"
+                    : "border-green-500/30 bg-green-500/10 text-green-500"
+                }`}
+              >
+                <span className="text-base">✓</span>
+                {rebalanceAction === "failure"
+                  ? "Failure Simulation Complete"
+                  : "Recovery Complete"}
+              </motion.div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <motion.div
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
@@ -263,7 +538,10 @@ export default function NodesPage() {
                     }
                     size="sm"
                     className="w-full gap-2 text-xs"
-                    onClick={() => toggleStatus(node.nodeId, node.status)}
+                    disabled={rebalancing}
+                    onClick={() =>
+                      toggleStatus(node.nodeId, node.status, node.name)
+                    }
                   >
                     {node.status === "online" ? (
                       <>

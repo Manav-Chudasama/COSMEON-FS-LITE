@@ -134,10 +134,16 @@ export interface IntegrityReport {
 export interface RebalanceReport {
   reason: "node_failure" | "node_recovery";
   affectedNodeId: string;
+  affectedNodeName?: string;
+  totalAffectedChunks?: number;
   movedChunks: {
     chunkId: string;
     fromNodeId: string;
+    fromNodeName: string;
     toNodeId: string;
+    toNodeName: string;
+    chunkSize: number;
+    action: "promoted" | "re-replicated" | "migrated";
   }[];
   timestamp: string;
 }
@@ -184,10 +190,10 @@ export const DEFAULT_CONFIG: FSConfig = {
   integrityScanIntervalMs: 60 * 1000, // 60 seconds
   chunking: {
     strategy: "fixed",
-    minSize: 128 * 1024,  // 128 KB min
-    avgSize: 256 * 1024,  // 256 KB target
-    maxSize: 512 * 1024,  // 512 KB max
-    windowSize: 48,       // rolling hash window
-    maskBits: 18,         // ~256 KB average (2^18 = 262144)
+    minSize: 128 * 1024, // 128 KB min
+    avgSize: 256 * 1024, // 256 KB target
+    maxSize: 512 * 1024, // 512 KB max
+    windowSize: 48, // rolling hash window
+    maskBits: 18, // ~256 KB average (2^18 = 262144)
   },
 };

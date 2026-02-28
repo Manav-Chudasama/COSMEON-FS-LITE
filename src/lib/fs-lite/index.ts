@@ -68,7 +68,11 @@ export {
 
 export { distributeChunks } from "./distributor";
 export { replicateChunks, replicateChunkToNode } from "./replicator";
-export { rebalanceOnFailure, rebalanceOnRecovery } from "./rebalancer";
+export {
+  rebalanceOnFailure,
+  rebalanceOnRecovery,
+  type RebalanceProgressCallback,
+} from "./rebalancer";
 
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";
