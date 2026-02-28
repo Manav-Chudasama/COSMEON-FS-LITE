@@ -23,6 +23,7 @@ export type LogEventType =
   | "INTEGRITY_CHECK"
   | "INTEGRITY_PASS"
   | "INTEGRITY_FAIL"
+  | "INTEGRITY_ALERT"
   | "CACHE_HIT"
   | "CACHE_MISS"
   | "CACHE_EVICT";
@@ -36,6 +37,7 @@ export interface FSConfig {
   maxLogEntries: number;
   dataDir: string;
   distributionStrategy: DistributionStrategy;
+  integrityScanIntervalMs: number;
 }
 
 /** Represents a single chunk of a file */
@@ -159,4 +161,5 @@ export const DEFAULT_CONFIG: FSConfig = {
   maxLogEntries: 500,
   dataDir: ".fs-lite-data",
   distributionStrategy: "round-robin",
+  integrityScanIntervalMs: 60 * 1000, // 60 seconds
 };

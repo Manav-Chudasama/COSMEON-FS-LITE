@@ -32,7 +32,14 @@ export {
   extractChunkData,
 } from "./chunker";
 
-export { computeHash, verifyChunk, verifyFile } from "./integrity";
+export {
+  computeHash,
+  verifyChunk,
+  verifyFile,
+  scanAllFiles,
+  startIntegrityScanner,
+  stopIntegrityScanner,
+} from "./integrity";
 
 export {
   initializeNodes,
@@ -71,12 +78,14 @@ import { connectDB } from "./db";
 import { initializeNodes } from "./node-manager";
 import { initMetadataStore } from "./metadata-store";
 import { fsLogger } from "./logger";
+import { startIntegrityScanner } from "./integrity";
 
 let engineInitialized = false;
 
 /**
  * Initialize the FS-Lite engine.
- * Connects to MongoDB, creates default nodes, and loads metadata.
+ * Connects to MongoDB, creates default nodes, loads metadata,
+ * and starts the background integrity scanner.
  */
 export async function initEngine(): Promise<void> {
   if (engineInitialized) return;
@@ -90,6 +99,7 @@ export async function initEngine(): Promise<void> {
   await initializeNodes();
   await initMetadataStore();
   await fsLogger.init();
+  startIntegrityScanner();
   engineInitialized = true;
 
   console.log("[FS-LITE] Engine initialized");
