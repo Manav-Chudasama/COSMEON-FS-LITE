@@ -7,6 +7,7 @@ on:
     branches: [main, features]
 
 jobs:
+  # ── Job 1: Type Check & Unit Tests ─────────────────────────────────────────
   type-check-test:
     name: Type Check & Unit Tests
     runs-on: ubuntu-latest
@@ -28,3 +29,118 @@ jobs:
 
       - name: Unit Tests
         run: bun test tests/unit/
+
+  # ── Job 2: Docker Compose E2E Health Checks ─────────────────────────────────
+  docker-e2e:
+    name: Docker Compose E2E Health Checks
+    runs-on: ubuntu-latest
+    needs: type-check-test # only runs if Job 1 passes
+
+    env:
+      ARCJET_KEY: ${{ secrets.ARCJET_KEY }}
+      STORAGE_MODE: docker
+      MONGODB_URI: mongodb://mongo:27017/fslite
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env.local for compose
+        run: |
+          cat <<EOF > .env.local
+          MONGODB_URI=mongodb://mongo:27017/fslite
+          STORAGE_MODE=docker
+          ARCJET_KEY=${{ secrets.ARCJET_KEY }}
+          ARCJET_ENV=development
+          EOF
+
+      - name: Build & start stack (detached)
+        run: docker compose up --build -d
+
+      - name: Wait for orchestrator to be ready (up to 150s)
+        run: |
+          echo "Waiting for orchestrator on port 3000..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/fs/nodes > /dev/null 2>&1; then
+              echo "✅ Orchestrator is up after attempt $i"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "❌ Orchestrator did not become ready in time"
+              docker compose logs --tail=40
+              exit 1
+            fi
+            echo "Attempt $i/30 — retrying in 5s..."
+            sleep 5
+          done
+
+      - name: Health check — GET /api/fs/nodes
+        run: |
+          echo "--- Testing /api/fs/nodes ---"
+          res=$(curl -sf http://localhost:3000/api/fs/nodes)
+          echo "$res" | head -c 500
+          echo "$res" | grep -q '"nodes"' \
+            && echo "✅ PASS: /api/fs/nodes" \
+            || (echo "❌ FAIL: /api/fs/nodes"; exit 1)
+
+      - name: Health check — GET /api/fs/stats
+        run: |
+          echo "--- Testing /api/fs/stats ---"
+          res=$(curl -sf http://localhost:3000/api/fs/stats)
+          echo "$res" | head -c 500
+          echo "$res" | grep -q '"totalFiles"' \
+            && echo "✅ PASS: /api/fs/stats" \
+            || (echo "❌ FAIL: /api/fs/stats"; exit 1)
+
+      - name: Health check — GET /api/fs/files
+        run: |
+          echo "--- Testing /api/fs/files ---"
+          res=$(curl -sf http://localhost:3000/api/fs/files)
+          echo "$res" | head -c 500
+          echo "$res" | grep -q '"files"' \
+            && echo "✅ PASS: /api/fs/files" \
+            || (echo "❌ FAIL: /api/fs/files"; exit 1)
+
+      - name: Health check — GET /api/fs/logs
+        run: |
+          echo "--- Testing /api/fs/logs ---"
+          res=$(curl -sf http://localhost:3000/api/fs/logs)
+          echo "$res" | head -c 500
+          echo "$res" | grep -q '"entries"' \
+            && echo "✅ PASS: /api/fs/logs" \
+            || (echo "❌ FAIL: /api/fs/logs"; exit 1)
+
+      - name: Health check — GET /api/fs/erasure
+        run: |
+          echo "--- Testing /api/fs/erasure ---"
+          res=$(curl -sf http://localhost:3000/api/fs/erasure)
+          echo "$res" | head -c 500
+          echo "$res" | grep -q '"enabled"' \
+            && echo "✅ PASS: /api/fs/erasure" \
+            || (echo "❌ FAIL: /api/fs/erasure"; exit 1)
+
+      - name: Health check — GET /api/fs/security (probe)
+        run: |
+          echo "--- Testing /api/fs/security?probe=rateLimit ---"
+          res=$(curl -sf "http://localhost:3000/api/fs/security?probe=rateLimit")
+          echo "$res" | head -c 500
+          echo "$res" | grep -q '"allowed"' \
+            && echo "✅ PASS: /api/fs/security" \
+            || (echo "❌ FAIL: /api/fs/security"; exit 1)
+
+      - name: Health check — GET /api/fs/analytics
+        run: |
+          echo "--- Testing /api/fs/analytics ---"
+          res=$(curl -sf http://localhost:3000/api/fs/analytics)
+          echo "$res" | head -c 500
+          echo "$res" | grep -qE '"uploads"|"totalFiles"|"nodes"' \
+            && echo "✅ PASS: /api/fs/analytics" \
+            || (echo "❌ FAIL: /api/fs/analytics"; exit 1)
+
+      - name: Print full container logs on failure
+        if: failure()
+        run: docker compose logs --tail=80
+
+      - name: Tear down (always)
+        if: always()
+        run: docker compose down -v --remove-orphans
