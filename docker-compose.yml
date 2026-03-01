@@ -10,10 +10,11 @@ services:
   # ── MongoDB (Local Database) ──
   mongo:
     image: mongo:7
+    command: ["mongod", "--quiet", "--logpath", "/dev/null"]
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
       interval: 5s
       timeout: 3s
       retries: 5
