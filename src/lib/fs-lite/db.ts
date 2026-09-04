@@ -2,7 +2,15 @@
 // COSMEON FS-LITE — MongoDB Connection & Schemas
 // ============================================
 
+import dns from "node:dns";
 import mongoose, { type Connection } from "mongoose";
+
+// Ensure Node/Bun on Windows reliably resolves MongoDB Atlas SRV records
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {
+  // Ignore in restricted environments
+}
 
 // ── Singleton connection ──────────────────────────────
 
@@ -64,6 +72,9 @@ const fileSchema = new mongoose.Schema(
     uploadedAt: { type: String, required: true },
     version: { type: Number, default: 1 },
     chunks: { type: [chunkSubSchema], default: [] },
+    // ── Ownership & Sharing ──
+    ownerId: { type: String, index: true },
+    sharedWith: { type: [String], default: [] },
   },
   { timestamps: true },
 );
@@ -98,9 +109,52 @@ const logSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// ── User Schema ───────────────────────────────────────
+
+const userSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true, unique: true, index: true },
+    name: { type: String, required: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      index: true,
+    },
+    passwordHash: { type: String, required: true },
+    role: { type: String, enum: ["user", "admin"], default: "user" },
+    twoFactorEnabled: { type: Boolean, default: true },
+    createdAt: { type: String, required: true },
+  },
+  { timestamps: true },
+);
+
+// ── OTP Schema (for 2FA, Forgot Password, Registration) ─
+
+const otpSchema = new mongoose.Schema(
+  {
+    otpId: { type: String, required: true, unique: true, index: true },
+    email: { type: String, required: true, lowercase: true, index: true },
+    codeHash: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ["2fa", "forgot_password", "registration"],
+      required: true,
+    },
+    expiresAt: { type: Date, required: true, index: { expires: 0 } },
+    used: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
 // Prevent model recompilation in Next.js hot reload
 export const FileModel =
   mongoose.models.File || mongoose.model("File", fileSchema);
 export const NodeModel =
   mongoose.models.Node || mongoose.model("Node", nodeSchema);
 export const LogModel = mongoose.models.Log || mongoose.model("Log", logSchema);
+export const UserModel =
+  mongoose.models.User || mongoose.model("User", userSchema);
+export const OtpModel =
+  mongoose.models.Otp || mongoose.model("Otp", otpSchema);

@@ -150,15 +150,26 @@ export default function LandingPage() {
             FS-LITE
           </span>
         </div>
-        <Link href="/dashboard" className="pointer-events-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs cursor-target border-primary/20 hover:bg-primary/10 transition-colors"
-          >
-            Launch Dashboard
-          </Button>
-        </Link>
+        <div className="flex items-center gap-3 pointer-events-auto">
+          <Link href="/login">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs cursor-target hover:bg-primary/10 transition-colors"
+            >
+              Sign In
+            </Button>
+          </Link>
+          <Link href="/dashboard">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs cursor-target border-primary/20 hover:bg-primary/10 transition-colors"
+            >
+              Launch Dashboard
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}

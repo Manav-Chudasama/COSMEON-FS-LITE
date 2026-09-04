@@ -31,6 +31,7 @@ import {
   updateNodeUsage,
 } from "@/lib/fs-lite";
 import { uploadProtection } from "@/lib/arcjet";
+import { getSessionFromRequest } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
   try {
@@ -311,6 +312,7 @@ export async function POST(request: NextRequest) {
             erasureCoded: isErasureCodingEnabled(),
             merkleRoot: merkle.root,
             merkleTree: merkle.tree,
+            ownerId: (await getSessionFromRequest(request))?.userId,
           };
 
           await addFile(fsFile);

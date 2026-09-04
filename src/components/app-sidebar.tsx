@@ -4,15 +4,18 @@ import {
   BarChart3,
   Files,
   LayoutDashboard,
+  LogOut,
   Moon,
   Satellite,
   ScrollText,
   ShieldCheck,
   Sun,
+  User,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -61,9 +64,31 @@ const navItems = [
   },
 ];
 
+interface SessionUser {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.user) setUser(data.user); })
+      .catch(() => {});
+  }, []);
+
+  async function handleSignOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <Sidebar>
@@ -117,7 +142,23 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-3">
+        {/* User profile */}
+        {user && (
+          <div className="border border-border p-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <User className="h-3 w-3" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-medium">{user.name}</p>
+                <p className="truncate text-[10px] text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Theme toggle */}
         <Button
           variant="ghost"
           size="sm"
@@ -127,6 +168,17 @@ export function AppSidebar() {
           <Sun className="h-3.5 w-3.5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-3.5 w-3.5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           Toggle Theme
+        </Button>
+
+        {/* Sign Out */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="cursor-target w-full justify-start gap-2 text-xs text-muted-foreground hover:text-destructive"
+          onClick={handleSignOut}
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign Out
         </Button>
       </SidebarFooter>
     </Sidebar>

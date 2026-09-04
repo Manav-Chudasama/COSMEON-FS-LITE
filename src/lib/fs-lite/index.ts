@@ -14,8 +14,8 @@ export {
   splitFileFixed,
 } from "./chunker";
 
-// ── Database ──────────────────────────────────
-export { connectDB, FileModel, isDBConnected, NodeModel } from "./db";
+// ── Database ──────────────────────────────────────────
+export { connectDB, FileModel, isDBConnected, NodeModel, UserModel, OtpModel } from "./db";
 export { distributeChunks } from "./distributor";
 // ── Docker Control ────────────────────────────
 export {
@@ -89,6 +89,7 @@ export { simulateLatency } from "./simulate-latency";
 export { storageClient } from "./storage-client";
 // ── Types ─────────────────────────────────────
 export type {
+  AuthTokenPayload,
   CacheStats,
   ChunkingStrategy,
   DistributionStrategy,
@@ -101,10 +102,14 @@ export type {
   LatencyMode,
   LogEventType,
   NodeStatus,
+  OtpType,
   RebalanceReport,
   StorageMode,
   SystemStats,
   UploadResult,
+  User,
+  UserRole,
+  UserSafe,
 } from "./types";
 export { DEFAULT_CONFIG } from "./types";
 

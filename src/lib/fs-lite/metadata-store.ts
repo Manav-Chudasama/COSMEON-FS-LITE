@@ -40,6 +40,8 @@ function docToFSFile(doc: Record<string, unknown>): FSFile {
     uploadedAt: doc.uploadedAt as string,
     version: (doc.version as number) || 1,
     chunks: (doc.chunks as FSChunk[]) || [],
+    ownerId: (doc.ownerId as string) || undefined,
+    sharedWith: (doc.sharedWith as string[]) || [],
   };
 }
 

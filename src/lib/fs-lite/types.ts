@@ -112,6 +112,47 @@ export interface FSFile {
   merkleRoot?: string;
   /** Serialized Merkle tree (flat array, 1-indexed) */
   merkleTree?: string[];
+  /** ID of the user who uploaded this file */
+  ownerId?: string;
+  /** List of userIds who have been granted access */
+  sharedWith?: string[];
+}
+
+// ── Auth Types ─────────────────────────────────────────
+
+/** User role */
+export type UserRole = "user" | "admin";
+
+/** OTP type */
+export type OtpType = "2fa" | "forgot_password" | "registration";
+
+/** Full user model (never expose passwordHash to client) */
+export interface User {
+  userId: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  twoFactorEnabled: boolean;
+  createdAt: string;
+}
+
+/** Safe user profile (no passwordHash) */
+export interface UserSafe {
+  userId: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  twoFactorEnabled: boolean;
+  createdAt: string;
+}
+
+/** JWT token payload */
+export interface AuthTokenPayload {
+  userId: string;
+  email: string;
+  name: string;
+  role: UserRole;
 }
 
 /** Represents a satellite node */
