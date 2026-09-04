@@ -247,12 +247,12 @@ export default function FileDetailPage() {
         >
           <ArrowLeft className="h-3 w-3" /> Back to Files
         </Link>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
+        <div className="flex items-center justify-between gap-4 min-w-0">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight break-all">
               {file.originalName}
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               {formatBytes(file.totalSize)} · {file.chunkCount} chunks ·{" "}
               {file.mimeType}
             </p>

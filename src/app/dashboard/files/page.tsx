@@ -3,7 +3,6 @@
 import {
   Download,
   FileIcon,
-  Gauge,
   ShieldCheck,
   Trash2,
   Upload,
@@ -97,13 +96,7 @@ export default function FilesPage() {
     { message: string; stage: string }[]
   >([]);
 
-  // Latency picker state
-  const [latencyMode, setLatencyMode] = useState<"default" | "high">("default");
-  const [latencyPickerOpen, setLatencyPickerOpen] = useState(false);
-  const [pendingDownload, setPendingDownload] = useState<{
-    fileId: string;
-    fileName: string;
-  } | null>(null);
+
 
   const fetchFiles = useCallback(() => {
     fetch("/api/fs/files")
@@ -225,28 +218,7 @@ export default function FilesPage() {
     setDownloadFileName("");
   };
 
-  const openLatencyPicker = (fileId: string, fileName: string) => {
-    // Sync current mode from server before showing picker
-    fetch("/api/fs/latency")
-      .then((r) => r.json())
-      .then((d) => setLatencyMode(d.mode ?? "default"))
-      .catch(() => {});
-    setPendingDownload({ fileId, fileName });
-    setLatencyPickerOpen(true);
-  };
 
-  const confirmDownload = async () => {
-    if (!pendingDownload) return;
-    setLatencyPickerOpen(false);
-    // Push the chosen mode to the server before streaming
-    await fetch("/api/fs/latency", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: latencyMode }),
-    }).catch(() => {});
-    handleDownload(pendingDownload.fileId, pendingDownload.fileName);
-    setPendingDownload(null);
-  };
 
   const handleDownload = async (fileId: string, fileName: string) => {
     setDownloading(true);
@@ -661,79 +633,7 @@ export default function FilesPage() {
           </DialogContent>
         </Dialog>
 
-        {/* ── Latency Picker Dialog ────────────────────────────── */}
-        <Dialog
-          open={latencyPickerOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              setLatencyPickerOpen(false);
-              setPendingDownload(null);
-            }
-          }}
-        >
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="text-sm">Download Settings</DialogTitle>
-              {pendingDownload && (
-                <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                  {pendingDownload.fileName}
-                </p>
-              )}
-            </DialogHeader>
 
-            <div className="mt-1 space-y-3">
-              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <Gauge className="h-3 w-3" />
-                Node Latency Simulation
-              </p>
-
-              {/* Default / High toggle */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setLatencyMode("default")}
-                  className={`flex flex-col items-start gap-1.5 rounded-lg border p-4 text-left transition-all ${
-                    latencyMode === "default"
-                      ? "border-primary bg-primary/5 text-foreground"
-                      : "border-border text-muted-foreground hover:border-muted-foreground/40"
-                  }`}
-                >
-                  <span className="text-xs font-semibold">Default</span>
-                  <span className="text-[10px] leading-snug opacity-70">
-                    No artificial delay.
-                    <br />
-                    Chunks read at full speed.
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setLatencyMode("high")}
-                  className={`flex flex-col items-start gap-1.5 rounded-lg border p-4 text-left transition-all ${
-                    latencyMode === "high"
-                      ? "border-amber-500 bg-amber-500/5 text-amber-400"
-                      : "border-border text-muted-foreground hover:border-muted-foreground/40"
-                  }`}
-                >
-                  <span className="text-xs font-semibold">High</span>
-                  <span className="text-[10px] leading-snug opacity-70">
-                    400 ms delay per chunk.
-                    <br />
-                    Visualise each pipeline step.
-                  </span>
-                </button>
-              </div>
-
-              {/* Start button */}
-              <Button
-                className="mt-1 w-full gap-2 text-xs"
-                size="sm"
-                onClick={confirmDownload}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Start Download
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Download progress dialog */}
         <Dialog
@@ -747,7 +647,7 @@ export default function FilesPage() {
         >
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-sm">
+              <DialogTitle className="text-sm break-all pr-6">
                 Downloading &quot;{downloadFileName}&quot;
               </DialogTitle>
             </DialogHeader>
@@ -916,13 +816,15 @@ export default function FilesPage() {
                     transition={{ delay: i * 0.05 }}
                     className="cursor-target border-b transition-colors hover:bg-muted/50"
                   >
-                    <TableCell>
+                    <TableCell className="max-w-[200px] sm:max-w-[350px]">
                       <Link
                         href={`/dashboard/files/${file.fileId}`}
-                        className="flex items-center gap-2 text-xs font-medium hover:text-primary"
+                        className="flex items-center gap-2 text-xs font-medium hover:text-primary min-w-0"
                       >
-                        <FileIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        {file.originalName}
+                        <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate" title={file.originalName}>
+                          {file.originalName}
+                        </span>
                       </Link>
                     </TableCell>
                     <TableCell>
@@ -941,7 +843,7 @@ export default function FilesPage() {
                           size="icon"
                           className="h-7 w-7"
                           onClick={() =>
-                            openLatencyPicker(file.fileId, file.originalName)
+                            handleDownload(file.fileId, file.originalName)
                           }
                         >
                           <Download className="h-3.5 w-3.5" />
