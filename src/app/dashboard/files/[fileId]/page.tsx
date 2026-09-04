@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileRebuildModal } from "@/components/file-rebuild-modal";
 import {
   Dialog,
   DialogContent,
@@ -82,6 +83,7 @@ export default function FileDetailPage() {
   const [verifyEvents, setVerifyEvents] = useState<
     { message: string; stage: string; match?: boolean }[]
   >([]);
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
@@ -205,21 +207,9 @@ export default function FileDetailPage() {
     return "pending";
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!file) return;
-    try {
-      const res = await fetch(`/api/fs/download/${fileId}`);
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.originalName;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Download failed");
-    }
+    setDownloadModalOpen(true);
   };
 
   if (loading) {
@@ -633,6 +623,13 @@ export default function FileDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <FileRebuildModal
+        open={downloadModalOpen}
+        onOpenChange={setDownloadModalOpen}
+        fileId={file?.fileId ?? null}
+        fileName={file?.originalName ?? ""}
+      />
     </div>
   );
 }

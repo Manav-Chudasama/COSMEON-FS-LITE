@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FileRebuildModal } from "@/components/file-rebuild-modal";
 import {
   Dialog,
   DialogContent,
@@ -84,17 +85,15 @@ export default function FilesPage() {
   >([]);
 
   // Streaming download progress state
-  const [downloading, setDownloading] = useState(false);
-  const [downloadOpen, setDownloadOpen] = useState(false);
-  const [downloadFileName, setDownloadFileName] = useState("");
-  const [downloadStage, setDownloadStage] = useState<string>("");
-  const [downloadProgress, setDownloadProgress] = useState({
-    current: 0,
-    total: 0,
+  const [downloadModal, setDownloadModal] = useState<{
+    open: boolean;
+    fileId: string | null;
+    fileName: string;
+  }>({
+    open: false,
+    fileId: null,
+    fileName: "",
   });
-  const [downloadEvents, setDownloadEvents] = useState<
-    { message: string; stage: string }[]
-  >([]);
 
 
 
@@ -211,98 +210,12 @@ export default function FilesPage() {
     }
   };
 
-  const resetDownloadState = () => {
-    setDownloadStage("");
-    setDownloadProgress({ current: 0, total: 0 });
-    setDownloadEvents([]);
-    setDownloadFileName("");
-  };
-
-
-
-  const handleDownload = async (fileId: string, fileName: string) => {
-    setDownloading(true);
-    resetDownloadState();
-    setDownloadFileName(fileName);
-    setDownloadOpen(true);
-
-    try {
-      const res = await fetch(`/api/fs/download/${fileId}/progress`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-
-      if (!res.ok || !res.body) {
-        throw new Error("Download failed");
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line);
-            setDownloadStage(event.stage);
-            setDownloadEvents((prev) => [
-              ...prev,
-              { message: event.message, stage: event.stage },
-            ]);
-
-            if (event.stage === "read") {
-              setDownloadProgress({
-                current: (event.chunkIndex as number) + 1,
-                total: event.totalChunks as number,
-              });
-            } else if (event.stage === "start") {
-              setDownloadProgress((prev) => ({
-                ...prev,
-                total: event.totalChunks as number,
-              }));
-            } else if (event.stage === "complete") {
-              // Decode base64 directly into a Blob — no second request
-              const base64 = event.fileData as string;
-              const mimeType =
-                (event.mimeType as string) || "application/octet-stream";
-              const binary = atob(base64);
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++)
-                bytes[i] = binary.charCodeAt(i);
-              const blob = new Blob([bytes], { type: mimeType });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = fileName;
-              a.click();
-              URL.revokeObjectURL(url);
-              toast.success(`"${fileName}" downloaded`);
-              setTimeout(() => {
-                setDownloadOpen(false);
-                resetDownloadState();
-              }, 800);
-            } else if (event.stage === "error") {
-              toast.error(event.message as string);
-            }
-          } catch {
-            // Skip malformed lines
-          }
-        }
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Download failed");
-    } finally {
-      setDownloading(false);
-    }
+  const handleDownload = (fileId: string, fileName: string) => {
+    setDownloadModal({
+      open: true,
+      fileId,
+      fileName,
+    });
   };
 
   // Determine completed stages for the stepper
@@ -348,43 +261,6 @@ export default function FilesPage() {
       ? Math.round((uploadProgress.current / uploadProgress.total) * 100)
       : 0;
 
-  // Download stage stepper logic
-  const dlStages = ["start", "read", "verify", "reassemble", "complete"];
-  const dlStageLabels: Record<string, string> = {
-    start: "Locating Chunks",
-    read: "Reading Chunks",
-    verify: "Verifying Integrity",
-    reassemble: "Reassembling File",
-    complete: "Download Ready",
-  };
-
-  const getDlStageStatus = (stage: string) => {
-    const doneMap: Record<string, string> = {
-      start: "read",
-      read: "verify",
-      verify: "reassemble",
-      reassemble: "verify_done",
-      complete: "complete",
-    };
-    const currentIndex = dlStages.indexOf(downloadStage.replace(/_done$/, ""));
-    const stageIndex = dlStages.indexOf(stage);
-
-    if (downloadStage === "complete") return "done";
-    if (downloadStage === "verify_done" && stageIndex <= 3) return "done";
-    if (stageIndex < currentIndex) return "done";
-    if (
-      downloadStage === stage ||
-      downloadStage === `${stage}_done` ||
-      downloadStage === doneMap[stage]
-    )
-      return "active";
-    return "pending";
-  };
-
-  const dlProgressPercent =
-    downloadProgress.total > 0
-      ? Math.round((downloadProgress.current / downloadProgress.total) * 100)
-      : 0;
 
   return (
     <div>
@@ -635,143 +511,15 @@ export default function FilesPage() {
 
 
 
-        {/* Download progress dialog */}
-        <Dialog
-          open={downloadOpen}
-          onOpenChange={(open) => {
-            if (!downloading) {
-              setDownloadOpen(open);
-              if (!open) resetDownloadState();
-            }
-          }}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-sm break-all pr-6">
-                Downloading &quot;{downloadFileName}&quot;
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="mt-2 space-y-4">
-              {/* Stage stepper */}
-              <div className="space-y-2">
-                {dlStages
-                  .filter((s) => s !== "complete")
-                  .map((stage) => {
-                    const status = getDlStageStatus(stage);
-                    return (
-                      <motion.div
-                        key={stage}
-                        className="flex items-center gap-3"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <div className="flex h-5 w-5 items-center justify-center">
-                          {status === "done" ? (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[8px] text-white"
-                            >
-                              ✓
-                            </motion.div>
-                          ) : status === "active" ? (
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{
-                                duration: 1,
-                                repeat: Infinity,
-                                ease: "linear",
-                              }}
-                              className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
-                            />
-                          ) : (
-                            <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />
-                          )}
-                        </div>
-                        <span
-                          className={`text-xs ${
-                            status === "done"
-                              ? "text-muted-foreground"
-                              : status === "active"
-                                ? "font-medium text-foreground"
-                                : "text-muted-foreground/50"
-                          }`}
-                        >
-                          {dlStageLabels[stage]}
-                          {stage === "read" &&
-                            downloadProgress.total > 0 &&
-                            status === "active" && (
-                              <span className="ml-1.5 font-mono text-primary">
-                                {downloadProgress.current}/
-                                {downloadProgress.total}
-                              </span>
-                            )}
-                        </span>
-                      </motion.div>
-                    );
-                  })}
-              </div>
-
-              {/* Progress bar */}
-              {downloadProgress.total > 0 && (
-                <div>
-                  <Progress value={dlProgressPercent} className="h-2" />
-                  <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                    {dlProgressPercent}% • {downloadProgress.current} of{" "}
-                    {downloadProgress.total} chunks
-                  </p>
-                </div>
-              )}
-
-              {/* Live feed */}
-              {downloadEvents.length > 0 && (
-                <div>
-                  <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
-                    LIVE FEED
-                  </p>
-                  <ScrollArea className="h-32 rounded-md border bg-muted/30 p-2">
-                    <AnimatePresence>
-                      {downloadEvents
-                        .filter(
-                          (e) =>
-                            e.stage === "read" ||
-                            e.stage === "verify" ||
-                            e.stage === "verify_done" ||
-                            e.stage === "reassemble" ||
-                            e.stage === "complete",
-                        )
-                        .slice(-20)
-                        .map((event, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex items-center gap-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
-                          >
-                            <span className="text-primary">←</span>
-                            {event.message}
-                          </motion.div>
-                        ))}
-                    </AnimatePresence>
-                  </ScrollArea>
-                </div>
-              )}
-
-              {/* Complete */}
-              {downloadStage === "complete" && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 py-3 text-xs font-medium text-green-500"
-                >
-                  <span className="text-base">✓</span> Download Complete
-                </motion.div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Rebuilding download progress dialog */}
+        <FileRebuildModal
+          open={downloadModal.open}
+          onOpenChange={(open) =>
+            setDownloadModal((prev) => ({ ...prev, open }))
+          }
+          fileId={downloadModal.fileId}
+          fileName={downloadModal.fileName}
+        />
       </div>
 
       {loading ? (
