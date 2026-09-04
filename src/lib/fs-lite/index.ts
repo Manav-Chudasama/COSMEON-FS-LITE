@@ -4,6 +4,8 @@
 
 // ── Cache ─────────────────────────────────────
 export { chunkCache } from "./cache";
+// ── Crypto ────────────────────────────────────
+export { decryptFileBuffer, encryptFileBuffer } from "./crypto";
 // ── Core Modules ──────────────────────────────
 export {
   computeFileChecksum,
@@ -93,6 +95,7 @@ export type {
   CacheStats,
   ChunkingStrategy,
   DistributionStrategy,
+  EncryptionMeta,
   FSChunk,
   FSConfig,
   FSFile,

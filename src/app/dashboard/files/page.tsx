@@ -3,6 +3,7 @@
 import {
   Download,
   FileIcon,
+  Lock,
   ShieldCheck,
   Trash2,
   Upload,
@@ -14,6 +15,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileRebuildModal } from "@/components/file-rebuild-modal";
+import { FileDeleteModal } from "@/components/file-delete-modal";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -73,6 +76,7 @@ export default function FilesPage() {
   const [chunkingStrategy, setChunkingStrategy] = useState<"fixed" | "cdc">(
     "fixed",
   );
+  const [encryptEnabled, setEncryptEnabled] = useState(true);
 
   // Streaming upload progress state
   const [uploadStage, setUploadStage] = useState<string>("");
@@ -89,6 +93,18 @@ export default function FilesPage() {
     open: boolean;
     fileId: string | null;
     fileName: string;
+  }>({
+    open: false,
+    fileId: null,
+    fileName: "",
+  });
+
+  // Deletion modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    fileId: string | null;
+    fileName: string;
+    chunkCount?: number;
   }>({
     open: false,
     fileId: null,
@@ -124,6 +140,7 @@ export default function FilesPage() {
     formData.append("file", file);
     formData.append("strategy", strategy);
     formData.append("chunkingStrategy", chunkingStrategy);
+    formData.append("encrypt", encryptEnabled ? "true" : "false");
 
     try {
       const res = await fetch("/api/fs/upload", {
@@ -195,19 +212,13 @@ export default function FilesPage() {
     }
   };
 
-  const handleDelete = async (fileId: string, fileName: string) => {
-    try {
-      const res = await fetch(`/api/fs/files/${fileId}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error("Delete failed");
-
-      toast.success(`"${fileName}" deleted`);
-      fetchFiles();
-    } catch {
-      toast.error("Failed to delete file");
-    }
+  const handleDelete = (fileId: string, fileName: string, chunkCount?: number) => {
+    setDeleteModal({
+      open: true,
+      fileId,
+      fileName,
+      chunkCount,
+    });
   };
 
   const handleDownload = (fileId: string, fileName: string) => {
@@ -221,6 +232,7 @@ export default function FilesPage() {
   // Determine completed stages for the stepper
   const stages = [
     "checksum",
+    "encrypt",
     "split",
     "distribute",
     "write",
@@ -229,6 +241,7 @@ export default function FilesPage() {
   ];
   const stageLabels: Record<string, string> = {
     checksum: "Compute Checksum",
+    encrypt: "AES-256-GCM Encrypt",
     split: "Split into Chunks",
     distribute: "Assign to Nodes",
     write: "Write to Nodes",
@@ -343,6 +356,24 @@ export default function FilesPage() {
                     </Select>
                   </div>
                 </div>
+
+                {/* AES-256 Encryption Toggle */}
+                <div className="flex items-center justify-between border p-3">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-3.5 w-3.5 text-primary" />
+                    <div>
+                      <p className="text-xs font-medium">AES-256 Encryption</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Encrypt file before chunking &amp; distribution
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={encryptEnabled}
+                    onCheckedChange={setEncryptEnabled}
+                  />
+                </div>
+
                 <div
                   className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
                     dragOver ? "border-primary bg-primary/5" : "border-border"
@@ -573,6 +604,15 @@ export default function FilesPage() {
                         <span className="truncate" title={file.originalName}>
                           {file.originalName}
                         </span>
+                        {file.encrypted && (
+                          <Badge
+                            variant="outline"
+                            className="shrink-0 gap-1 border-primary/30 text-[9px] text-primary px-1.5 py-0"
+                          >
+                            <Lock className="h-2.5 w-2.5" />
+                            AES-256
+                          </Badge>
+                        )}
                       </Link>
                     </TableCell>
                     <TableCell>
@@ -610,7 +650,11 @@ export default function FilesPage() {
                           size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() =>
-                            handleDelete(file.fileId, file.originalName)
+                            handleDelete(
+                              file.fileId,
+                              file.originalName,
+                              file.chunkCount,
+                            )
                           }
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -624,6 +668,28 @@ export default function FilesPage() {
           </Table>
         </div>
       )}
+
+      {/* Streaming Rebuild Modal */}
+      <FileRebuildModal
+        open={downloadModal.open}
+        onOpenChange={(open) =>
+          setDownloadModal((prev) => ({ ...prev, open }))
+        }
+        fileId={downloadModal.fileId}
+        fileName={downloadModal.fileName}
+      />
+
+      {/* Streaming Delete Modal */}
+      <FileDeleteModal
+        open={deleteModal.open}
+        onOpenChange={(open) =>
+          setDeleteModal((prev) => ({ ...prev, open }))
+        }
+        fileId={deleteModal.fileId}
+        fileName={deleteModal.fileName}
+        chunkCount={deleteModal.chunkCount}
+        onDeleted={fetchFiles}
+      />
     </div>
   );
 }

@@ -75,6 +75,21 @@ const fileSchema = new mongoose.Schema(
     // ── Ownership & Sharing ──
     ownerId: { type: String, index: true },
     sharedWith: { type: [String], default: [] },
+    // ── Encryption ──
+    encrypted: { type: Boolean, default: false },
+    encryptionMeta: {
+      type: new mongoose.Schema(
+        {
+          algorithm: { type: String, default: "aes-256-gcm" },
+          iv: { type: String },
+          authTag: { type: String },
+          keyEnvelope: { type: String },
+          originalChecksum: { type: String },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
   },
   { timestamps: true },
 );
@@ -148,7 +163,11 @@ const otpSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Prevent model recompilation in Next.js hot reload
+// Prevent model recompilation in Next.js hot reload, but invalidate if schema is stale
+if (mongoose.models.File && !mongoose.models.File.schema.paths["encrypted"]) {
+  delete (mongoose.models as Record<string, unknown>).File;
+}
+
 export const FileModel =
   mongoose.models.File || mongoose.model("File", fileSchema);
 export const NodeModel =

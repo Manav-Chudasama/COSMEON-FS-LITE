@@ -60,6 +60,22 @@
 - Dashboard: uses sidebar collapse via `SidebarProvider` (already responsive)
 - Table cells: use `max-w-[200px] sm:max-w-[350px]` with `truncate` for long filenames
 
+## Streamed Action Modals (Rebuild & Deletion)
+
+- **Architecture:** Use NDJSON streaming from API routes (`/progress`, `/delete-progress`) to drive real-time visual progress.
+- **Confirmation:** Destructive actions (e.g. Purge File) must prompt for confirmation in a dedicated phase within the modal before triggering backend unlinking.
+- **Stage Stepper:** Consistent 4-to-5 stage stepper:
+  - Checkmark in `bg-emerald-500` (or `bg-destructive` for purge completion)
+  - Active stage shows spinning ring (`border-2 border-primary border-t-transparent animate-spin`)
+  - Pending stage shows dimmed circle (`border border-muted-foreground/30`)
+- **Progress Bar & Feed:**
+  - Progress bar shows real-time percentage and chunk ratio (`X% • X of Y chunks`)
+  - Live feed enclosed in `ScrollArea` with `h-32 border bg-muted/30 p-2 font-mono text-[10px]`
+  - Real-time events animated with `motion.div` and sliced to the latest 20 events.
+- **Buttons:**
+  - Standard action buttons use `size="sm" text-xs`.
+  - Destructive triggers use `variant="destructive"` or `variant="outline"` with `text-destructive hover:bg-destructive/10 border-destructive/30`.
+
 ## General Rules
 
 1. Never use external colors or hardcoded hex values — always use CSS variables

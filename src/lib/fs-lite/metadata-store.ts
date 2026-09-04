@@ -4,7 +4,7 @@
 
 import { connectDB, FileModel } from "./db";
 import { fsLogger } from "./logger";
-import type { FSChunk, FSFile } from "./types";
+import type { EncryptionMeta, FSChunk, FSFile } from "./types";
 
 // In-memory fallback cache
 let filesCache: Map<string, FSFile> = new Map();
@@ -42,6 +42,8 @@ function docToFSFile(doc: Record<string, unknown>): FSFile {
     chunks: (doc.chunks as FSChunk[]) || [],
     ownerId: (doc.ownerId as string) || undefined,
     sharedWith: (doc.sharedWith as string[]) || [],
+    encrypted: (doc.encrypted as boolean) || false,
+    encryptionMeta: (doc.encryptionMeta as EncryptionMeta) || undefined,
   };
 }
 
@@ -61,8 +63,8 @@ export async function addFile(file: FSFile): Promise<FSFile> {
   try {
     await connectDB();
     await FileModel.create(file);
-  } catch {
-    // Continue without persistence
+  } catch (err) {
+    console.error("[FS-LITE] Failed to persist file to MongoDB:", err);
   }
 
   fsLogger.log(

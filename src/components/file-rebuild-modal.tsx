@@ -27,13 +27,14 @@ interface DownloadEvent {
   stage: string;
 }
 
-const dlStages = ["start", "read", "verify", "reassemble", "complete"];
+const dlStages = ["start", "read", "reassemble", "decrypt", "verify", "complete"];
 
 const dlStageLabels: Record<string, string> = {
   start: "Locating Chunks",
   read: "Reading Chunks",
-  verify: "Verifying Integrity",
   reassemble: "Reassembling File",
+  decrypt: "Decrypting AES-256",
+  verify: "Verifying Integrity",
   complete: "Download Ready",
 };
 
@@ -52,6 +53,8 @@ export function FileRebuildModal({
   const [downloadEvents, setDownloadEvents] = useState<DownloadEvent[]>([]);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [readyBlobUrl, setReadyBlobUrl] = useState<string | null>(null);
+  const [isEncrypted, setIsEncrypted] = useState<boolean | null>(null);
+  const [checksumMismatch, setChecksumMismatch] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -61,6 +64,8 @@ export function FileRebuildModal({
     setDownloadProgress({ current: 0, total: 0 });
     setDownloadEvents([]);
     setDownloadError(null);
+    setIsEncrypted(null);
+    setChecksumMismatch(false);
     setReadyBlobUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -127,6 +132,13 @@ export function FileRebuildModal({
                   ...prev,
                   total: event.totalChunks as number,
                 }));
+                if (typeof event.encrypted === "boolean") {
+                  setIsEncrypted(event.encrypted);
+                }
+              } else if (event.stage === "verify_done") {
+                if (event.checksumMatch === false) {
+                  setChecksumMismatch(true);
+                }
               } else if (event.stage === "complete") {
                 // Decode binary blob and store for manual download
                 const base64 = event.fileData as string;
@@ -169,26 +181,20 @@ export function FileRebuildModal({
   }, [open, fileId, fileName]);
 
   const getDlStageStatus = (stage: string) => {
-    const doneMap: Record<string, string> = {
-      start: "read",
-      read: "verify",
-      verify: "reassemble",
-      reassemble: "verify_done",
-      complete: "complete",
-    };
-    const currentIndex = dlStages.indexOf(downloadStage.replace(/_done$/, ""));
+    if (stage === "verify" && checksumMismatch) return "error";
+    if (downloadStage === "complete") return "done";
+
+    const baseStage = downloadStage.replace(/_done$/, "");
+    const isDoneEvent = downloadStage.endsWith("_done");
+    const currentIndex = dlStages.indexOf(baseStage);
     const stageIndex = dlStages.indexOf(stage);
 
-    if (downloadStage === "complete") return "done";
-    if (downloadStage === "verify_done" && stageIndex <= 3) return "done";
     if (stageIndex < currentIndex) return "done";
-    if (
-      downloadStage === stage ||
-      downloadStage === `${stage}_done` ||
-      downloadStage === doneMap[stage]
-    ) {
-      return "active";
+    if (stageIndex === currentIndex) {
+      return isDoneEvent ? "done" : "active";
     }
+    // Skip decrypt stage for unencrypted files
+    if (stage === "decrypt" && isEncrypted === false) return "done";
     return "pending";
   };
 
@@ -214,6 +220,7 @@ export function FileRebuildModal({
           <div className="space-y-2">
             {dlStages
               .filter((s) => s !== "complete")
+              .filter((s) => s !== "decrypt" || isEncrypted !== false)
               .map((stage) => {
                 const status = getDlStageStatus(stage);
                 return (
@@ -233,6 +240,14 @@ export function FileRebuildModal({
                         >
                           ✓
                         </motion.div>
+                      ) : status === "error" ? (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white"
+                        >
+                          !
+                        </motion.div>
                       ) : status === "active" ? (
                         <motion.div
                           animate={{ rotate: 360 }}
@@ -251,12 +266,16 @@ export function FileRebuildModal({
                       className={`text-xs ${
                         status === "done"
                           ? "text-muted-foreground"
-                          : status === "active"
-                            ? "font-medium text-foreground"
-                            : "text-muted-foreground/50"
+                          : status === "error"
+                            ? "font-medium text-amber-500"
+                            : status === "active"
+                              ? "font-medium text-foreground"
+                              : "text-muted-foreground/50"
                       }`}
                     >
-                      {dlStageLabels[stage]}
+                      {stage === "verify" && checksumMismatch
+                        ? "Integrity Check Failed"
+                        : dlStageLabels[stage]}
                       {stage === "read" &&
                         downloadProgress.total > 0 &&
                         status === "active" && (
@@ -297,6 +316,8 @@ export function FileRebuildModal({
                         e.stage === "verify" ||
                         e.stage === "verify_done" ||
                         e.stage === "reassemble" ||
+                        e.stage === "decrypt" ||
+                        e.stage === "decrypt_done" ||
                         e.stage === "complete" ||
                         e.stage === "error",
                     )

@@ -94,6 +94,20 @@ export interface FSChunk {
   groupIndex?: number;
 }
 
+/** AES-256-GCM encryption metadata stored alongside the file */
+export interface EncryptionMeta {
+  /** Cipher algorithm used */
+  algorithm: "aes-256-gcm";
+  /** Initialization vector (hex-encoded, 12 bytes / 96 bits) */
+  iv: string;
+  /** Authentication tag (hex-encoded, 16 bytes / 128 bits) */
+  authTag: string;
+  /** Data Encryption Key wrapped with master key (base64) */
+  keyEnvelope: string;
+  /** SHA-256 checksum of the original plaintext (hex) */
+  originalChecksum: string;
+}
+
 /** Represents a file stored in the system */
 export interface FSFile {
   fileId: string;
@@ -116,6 +130,10 @@ export interface FSFile {
   ownerId?: string;
   /** List of userIds who have been granted access */
   sharedWith?: string[];
+  /** Whether this file is encrypted at rest */
+  encrypted?: boolean;
+  /** Encryption metadata (present when encrypted === true) */
+  encryptionMeta?: EncryptionMeta;
 }
 
 // ── Auth Types ─────────────────────────────────────────

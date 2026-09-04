@@ -8,6 +8,7 @@ import { v4 as groupUuidv4, v4 as uuidv4 } from "uuid";
 import type {
   ChunkingStrategy,
   DistributionStrategy,
+  EncryptionMeta,
   FSChunk,
   FSFile,
   UploadResult,
@@ -20,6 +21,7 @@ import {
   DEFAULT_CONFIG,
   distributeChunks,
   encodeParityShards,
+  encryptFileBuffer,
   getErasureConfig,
   getOnlineNodes,
   initEngine,
@@ -90,6 +92,8 @@ export async function POST(request: NextRequest) {
 
     const fileName = file.name;
     const fileMime = file.type || "application/octet-stream";
+    const shouldEncrypt =
+      (formData.get("encrypt") as string | null) !== "false";
 
     // Create a streaming NDJSON response
     const encoder = new TextEncoder();
@@ -109,12 +113,30 @@ export async function POST(request: NextRequest) {
             message: `Checksum: ${checksum.slice(0, 12)}...`,
           });
 
+          // Stage 1.5: Encryption (if enabled)
+          let workBuffer = buffer;
+          let encryptionMeta: EncryptionMeta | undefined;
+
+          if (shouldEncrypt) {
+            emit({
+              stage: "encrypt",
+              message: "Encrypting with AES-256-GCM...",
+            });
+            const result = encryptFileBuffer(buffer);
+            workBuffer = Buffer.from(result.ciphertext);
+            encryptionMeta = result.meta;
+            emit({
+              stage: "encrypt_done",
+              message: `Encrypted (${workBuffer.length} bytes ciphertext)`,
+            });
+          }
+
           // Stage 2: Split
           emit({
             stage: "split",
             message: `Splitting file into chunks (${chunkingStrategy.toUpperCase()})...`,
           });
-          const rawChunks = splitFile(buffer, fileId, chunkingStrategy);
+          const rawChunks = splitFile(workBuffer, fileId, chunkingStrategy);
           const totalChunks = rawChunks.length;
           const avgKB = Math.round(buffer.length / totalChunks / 1024);
           emit({
@@ -145,7 +167,7 @@ export async function POST(request: NextRequest) {
           const nodeMap = new Map(onlineNodes.map((n) => [n.nodeId, n.name]));
 
           for (const chunk of chunks) {
-            const chunkData = buffer.subarray(
+            const chunkData = workBuffer.subarray(
               chunk.offset,
               chunk.offset + chunk.size,
             );
@@ -203,7 +225,7 @@ export async function POST(request: NextRequest) {
               // Read data buffers for this group
               const dataBuffers: Buffer[] = [];
               for (const chunk of group) {
-                const chunkData = buffer.subarray(
+                const chunkData = workBuffer.subarray(
                   chunk.offset,
                   chunk.offset + chunk.size,
                 );
@@ -302,7 +324,7 @@ export async function POST(request: NextRequest) {
             chunkSize:
               chunkingStrategy === "cdc"
                 ? Math.round(
-                    buffer.length / chunks.filter((c) => !c.isParity).length,
+                    workBuffer.length / chunks.filter((c) => !c.isParity).length,
                   )
                 : DEFAULT_CONFIG.chunkSizeBytes,
             checksum,
@@ -313,6 +335,8 @@ export async function POST(request: NextRequest) {
             merkleRoot: merkle.root,
             merkleTree: merkle.tree,
             ownerId: (await getSessionFromRequest(request))?.userId,
+            encrypted: shouldEncrypt,
+            encryptionMeta,
           };
 
           await addFile(fsFile);

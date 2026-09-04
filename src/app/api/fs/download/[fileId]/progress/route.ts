@@ -8,6 +8,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import {
   chunkCache,
   computeHash,
+  decryptFileBuffer,
   DEFAULT_CONFIG,
   fsLogger,
   getFile,
@@ -50,7 +51,7 @@ export async function POST(
             message: `Reconstructing "${file.originalName}" (${totalChunks} chunks, latency: ${latencyMode})...`,
             fileName: file.originalName,
             totalChunks,
-            latencyMode,
+            encrypted: !!file.encrypted,
           });
 
           const chunkBuffers: Buffer[] = [];
@@ -130,23 +131,43 @@ export async function POST(
             });
           }
 
-          // Verify
-          emit({
-            stage: "verify",
-            message: "Verifying chunk integrity...",
-          });
-          await simulateLatency();
-
           // Reassemble
           emit({
             stage: "reassemble",
             message: `Reassembling ${totalChunks} chunks...`,
           });
-          const fullFile = reassembleFile(chunkBuffers);
+          let fullFile = reassembleFile(chunkBuffers);
 
-          // Verify the full file checksum
+          // Decrypt if file is encrypted
+          if (file.encrypted && file.encryptionMeta) {
+            emit({
+              stage: "decrypt",
+              message: "Decrypting file with AES-256-GCM & verifying auth tag...",
+            });
+            await simulateLatency();
+            fullFile = decryptFileBuffer(fullFile, file.encryptionMeta);
+            emit({
+              stage: "decrypt_done",
+              message: "Decryption verified ✓",
+            });
+          }
+
+          // Verify the full file checksum on plaintext
+          emit({
+            stage: "verify",
+            message: "Verifying file integrity (SHA-256)...",
+          });
+          await simulateLatency();
+
           const fullHash = computeHash(fullFile);
           const checksumMatch = fullHash === file.checksum;
+          if (!checksumMatch) {
+            fsLogger.log(
+              "INTEGRITY_FAIL",
+              `File checksum mismatch for ${file.fileId}: expected ${file.checksum.slice(0, 12)}..., got ${fullHash.slice(0, 12)}...`,
+              { fileId: file.fileId, expected: file.checksum, actual: fullHash },
+            );
+          }
           emit({
             stage: "verify_done",
             message: checksumMatch

@@ -7,6 +7,7 @@ import {
   chunkCache,
   computeHash,
   decodeDataShards,
+  decryptFileBuffer,
   fsLogger,
   getErasureGroups,
   getFile,
@@ -182,9 +183,14 @@ export async function GET(
     }
 
     // Reassemble
-    const fullFile = reassembleFile(
+    let fullFile = reassembleFile(
       chunkBuffers.filter((b) => b !== null) as Buffer[],
     );
+
+    // Decrypt if the file is encrypted
+    if (file.encrypted && file.encryptionMeta) {
+      fullFile = decryptFileBuffer(fullFile, file.encryptionMeta);
+    }
 
     fsLogger.log("FILE_DOWNLOAD", `File "${file.originalName}" downloaded`, {
       fileId: file.fileId,

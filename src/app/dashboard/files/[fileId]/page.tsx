@@ -8,21 +8,24 @@ import {
   Download,
   Hash,
   Loader2,
+  Lock,
   Satellite,
   Search,
   ShieldCheck,
+  Trash2,
   TreePine,
   XCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileRebuildModal } from "@/components/file-rebuild-modal";
+import { FileDeleteModal } from "@/components/file-delete-modal";
 import {
   Dialog,
   DialogContent,
@@ -68,9 +71,18 @@ interface FileDetail {
     replicas: string[];
     replicaNodes: { nodeId: string; nodeName: string }[];
   }[];
+  encrypted?: boolean;
+  encryptionMeta?: {
+    algorithm: string;
+    iv: string;
+    authTag: string;
+    keyEnvelope: string;
+    originalChecksum: string;
+  };
 }
 
 export default function FileDetailPage() {
+  const router = useRouter();
   const params = useParams();
   const fileId = params.fileId as string;
   const [file, setFile] = useState<FileDetail | null>(null);
@@ -84,6 +96,7 @@ export default function FileDetailPage() {
     { message: string; stage: string; match?: boolean }[]
   >([]);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
@@ -270,6 +283,15 @@ export default function FileDetailPage() {
               <Download className="h-3.5 w-3.5" />
               Download
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+              onClick={() => setDeleteModalOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete File
+            </Button>
           </div>
         </div>
       </div>
@@ -446,6 +468,47 @@ export default function FileDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Encryption Security Card */}
+      {file.encrypted && file.encryptionMeta && (
+        <Card className="mb-6 border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Lock className="h-4 w-4 text-primary" />
+              Encryption Security
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-xs md:grid-cols-4">
+              <div>
+                <p className="text-muted-foreground">Cipher</p>
+                <p className="font-mono text-[10px] font-medium text-primary">
+                  {file.encryptionMeta.algorithm.toUpperCase()}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <p className="flex items-center gap-1 font-medium text-green-500">
+                  <Lock className="h-3 w-3" />
+                  Protected
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">IV Fingerprint</p>
+                <p className="font-mono text-[10px]">
+                  {file.encryptionMeta.iv.slice(0, 16)}...
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Auth Tag</p>
+                <p className="font-mono text-[10px]">
+                  {file.encryptionMeta.authTag.slice(0, 16)}...
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Chunk distribution table */}
       <Card>
@@ -629,6 +692,18 @@ export default function FileDetailPage() {
         onOpenChange={setDownloadModalOpen}
         fileId={file?.fileId ?? null}
         fileName={file?.originalName ?? ""}
+      />
+
+      <FileDeleteModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        fileId={file?.fileId ?? null}
+        fileName={file?.originalName ?? ""}
+        chunkCount={file?.chunkCount}
+        totalSize={file?.totalSize}
+        onDeleted={() => {
+          router.push("/dashboard/files");
+        }}
       />
     </div>
   );
