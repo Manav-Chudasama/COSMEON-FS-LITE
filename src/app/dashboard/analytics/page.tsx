@@ -753,15 +753,16 @@ export default function AnalyticsPage() {
         </motion.div>
       </div>
 
-      {/* Row 3: Cache Performance + System Summary */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Row 3: Cache Performance */}
+      <div className="w-full">
         {/* ── Panel 6: Cache Performance ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
+          className="w-full"
         >
-          <Card>
+          <Card className="w-full">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Zap className="h-4 w-4 text-primary" />
@@ -772,77 +773,80 @@ export default function AnalyticsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-6">
-                <ChartContainer
-                  config={cacheConfig}
-                  className="h-[180px] w-[180px]"
-                >
-                  <RadialBarChart
-                    data={cacheRadialData}
-                    innerRadius={30}
-                    outerRadius={80}
-                    barSize={12}
-                    startAngle={90}
-                    endAngle={-270}
+              <div className="flex flex-col md:flex-row items-center md:items-stretch gap-6 md:gap-10">
+                <div className="flex justify-center items-center">
+                  <ChartContainer
+                    config={cacheConfig}
+                    className="h-[180px] w-[180px]"
                   >
-                    <RadialBar dataKey="value" background cornerRadius={5} />
-                    <ChartTooltip
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value) => `${value}%`}
-                          nameKey="name"
-                        />
-                      }
-                    />
-                  </RadialBarChart>
-                </ChartContainer>
+                    <RadialBarChart
+                      data={cacheRadialData}
+                      innerRadius={30}
+                      outerRadius={80}
+                      barSize={12}
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      <RadialBar dataKey="value" background cornerRadius={5} />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value) => `${value}%`}
+                            nameKey="name"
+                          />
+                        }
+                      />
+                    </RadialBarChart>
+                  </ChartContainer>
+                </div>
 
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Hit Rate
-                    </p>
-                    <p className="text-xl font-bold text-green-500 tabular-nums">
-                      {Math.round((dummyCacheHits / dummyCacheTotal) * 100)}%
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    {[
-                      {
-                        label: "Hits",
-                        value: dummyCacheHits,
-                        color: "bg-green-500",
-                      },
-                      {
-                        label: "Misses",
-                        value: dummyCacheMisses,
-                        color: "bg-red-500",
-                      },
-                      {
-                        label: "Evictions",
-                        value: dummyCacheEvictions,
-                        color: "bg-yellow-500",
-                      },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center gap-2 text-[10px]"
-                      >
-                        <div className={`h-2 w-2 rounded-full ${item.color}`} />
-                        <span className="text-muted-foreground">
-                          {item.label}
-                        </span>
-                        <span className="ml-auto font-medium tabular-nums">
-                          {item.value}
-                        </span>
+                <div className="flex-1 flex flex-col justify-center space-y-4 w-full">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="border border-border/50 p-3 bg-muted/20">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Hit Rate
+                      </p>
+                      <p className="text-xl font-bold text-green-500 tabular-nums">
+                        {Math.round((dummyCacheHits / dummyCacheTotal) * 100)}%
+                      </p>
+                    </div>
+                    <div className="border border-border/50 p-3 bg-muted/20">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                        Hits
                       </div>
-                    ))}
+                      <p className="text-xl font-bold text-foreground tabular-nums">
+                        {dummyCacheHits}
+                      </p>
+                    </div>
+                    <div className="border border-border/50 p-3 bg-muted/20">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                        Misses
+                      </div>
+                      <p className="text-xl font-bold text-foreground tabular-nums">
+                        {dummyCacheMisses}
+                      </p>
+                    </div>
+                    <div className="border border-border/50 p-3 bg-muted/20">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                        Evictions
+                      </div>
+                      <p className="text-xl font-bold text-foreground tabular-nums">
+                        {dummyCacheEvictions}
+                      </p>
+                    </div>
                   </div>
-                  <div className="pt-1">
-                    <p className="text-[10px] text-muted-foreground">
-                      Cache Size: {formatBytes(cacheStats.currentSizeBytes)} /{" "}
-                      {formatBytes(cacheStats.maxSizeBytes)}
-                    </p>
+
+                  <div className="border border-border/50 p-3 bg-muted/20">
+                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                      <span className="uppercase tracking-wider">Cache Size</span>
+                      <span className="font-mono">
+                        {formatBytes(cacheStats.currentSizeBytes)} /{" "}
+                        {formatBytes(cacheStats.maxSizeBytes)}
+                      </span>
+                    </div>
                     <Progress
                       value={
                         cacheStats.maxSizeBytes > 0
@@ -851,7 +855,7 @@ export default function AnalyticsPage() {
                             100
                           : 0
                       }
-                      className="mt-1 h-1.5"
+                      className="mt-2 h-1.5"
                     />
                   </div>
                 </div>
