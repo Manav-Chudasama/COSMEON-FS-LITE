@@ -302,12 +302,6 @@ export default function LandingPage() {
             >
               <MagicCard
                 className="cursor-target group flex h-full flex-col p-8 overflow-hidden bg-card/40 backdrop-blur-sm border-border/50 hover:border-primary/50 transition-colors"
-                gradientColor={
-                  typeof window !== "undefined" &&
-                  document.documentElement?.classList.contains("dark")
-                    ? "#2a1515"
-                    : "#fee2e2"
-                }
               >
                 <div className="mb-4 inline-flex rounded-lg bg-primary/10 p-3">
                   <feature.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
@@ -347,12 +341,6 @@ export default function LandingPage() {
                 <MagicCard
                   key={useCase.title}
                   className="cursor-target group flex w-80 flex-col p-6 overflow-hidden bg-card/20 backdrop-blur-md border-border/40 hover:border-primary/40 transition-colors"
-                  gradientColor={
-                    typeof window !== "undefined" &&
-                    document.documentElement?.classList.contains("dark")
-                      ? "#2a1515"
-                      : "#fee2e2"
-                  }
                 >
                   <div className="mb-4 inline-flex items-center justify-center rounded-xl bg-primary/10 w-12 h-12">
                     <useCase.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
@@ -371,12 +359,6 @@ export default function LandingPage() {
                 <MagicCard
                   key={useCase.title}
                   className="cursor-target group flex w-80 flex-col p-6 overflow-hidden bg-card/20 backdrop-blur-md border-border/40 hover:border-primary/40 transition-colors"
-                  gradientColor={
-                    typeof window !== "undefined" &&
-                    document.documentElement?.classList.contains("dark")
-                      ? "#2a1515"
-                      : "#fee2e2"
-                  }
                 >
                   <div className="mb-4 inline-flex items-center justify-center rounded-xl bg-primary/10 w-12 h-12">
                     <useCase.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
@@ -430,12 +412,6 @@ export default function LandingPage() {
               </div>
               <MagicCard
                 className="cursor-target flex-1 p-8 bg-card/10 backdrop-blur-sm border-border/40 hover:border-primary/30 transition-colors"
-                gradientColor={
-                  typeof window !== "undefined" &&
-                  document.documentElement?.classList.contains("dark")
-                    ? "#2a1515"
-                    : "#fee2e2"
-                }
               >
                 <div className="space-y-8">
                   <div>
@@ -490,12 +466,6 @@ export default function LandingPage() {
               </div>
               <MagicCard
                 className="cursor-target flex-1 p-8 bg-card/10 backdrop-blur-sm border-border/40 hover:border-primary/30 transition-colors"
-                gradientColor={
-                  typeof window !== "undefined" &&
-                  document.documentElement?.classList.contains("dark")
-                    ? "#2a1515"
-                    : "#fee2e2"
-                }
               >
                 <div className="space-y-8">
                   <div>

@@ -28,7 +28,12 @@ export type LogEventType =
   | "CACHE_MISS"
   | "CACHE_EVICT"
   | "ERASURE_ENCODE"
-  | "ERASURE_DECODE";
+  | "ERASURE_DECODE"
+  | "FILE_SHARE"
+  | "FILE_SHARE_REVOKE"
+  | "FILE_SHARE_LINK_CREATE"
+  | "FILE_SHARE_LINK_REVOKE"
+  | "FILE_SHARE_DOWNLOAD";
 
 /** Chunking strategy */
 export type ChunkingStrategy = "fixed" | "cdc";
@@ -128,12 +133,38 @@ export interface FSFile {
   merkleTree?: string[];
   /** ID of the user who uploaded this file */
   ownerId?: string;
+  /** Email of the user who uploaded this file */
+  ownerEmail?: string;
+  /** Name of the user who uploaded this file */
+  ownerName?: string;
   /** List of userIds who have been granted access */
   sharedWith?: string[];
+  /** Detailed collaborators with access (read & download only) */
+  sharedUsers?: SharedUser[];
+  /** Public expiring share link */
+  shareLink?: ShareLink;
   /** Whether this file is encrypted at rest */
   encrypted?: boolean;
   /** Encryption metadata (present when encrypted === true) */
   encryptionMeta?: EncryptionMeta;
+}
+
+/** Collaborator granted access to a file (read & download only) */
+export interface SharedUser {
+  userId: string;
+  email: string;
+  name?: string;
+  sharedAt: string;
+  permission: "read";
+}
+
+/** Public expiring share link */
+export interface ShareLink {
+  enabled: boolean;
+  token: string;
+  expiresAt?: string | null;
+  downloads: number;
+  createdAt: string;
 }
 
 // ── Auth Types ─────────────────────────────────────────

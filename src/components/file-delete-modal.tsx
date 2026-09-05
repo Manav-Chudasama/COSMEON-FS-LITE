@@ -103,7 +103,10 @@ export function FileDeleteModal({
       });
 
       if (!res.ok || !res.body) {
-        throw new Error("Failed to connect to constellation purge stream");
+        const errJson = await res.json().catch(() => null);
+        throw new Error(
+          errJson?.error || "Failed to connect to constellation purge stream",
+        );
       }
 
       const reader = res.body.getReader();
@@ -191,7 +194,7 @@ export function FileDeleteModal({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (phase === "purging") return; // Prevent closing while in-flight
+        if (phase === "purging" && !deleteError) return; // Prevent closing while in-flight unless errored
         if (!next) {
           handleClose();
         } else {
@@ -388,7 +391,7 @@ export function FileDeleteModal({
             </div>
 
             <DialogFooter className="mt-2 sm:justify-end gap-2">
-              {phase === "purging" ? (
+              {phase === "purging" && !deleteError ? (
                 <Button
                   variant="outline"
                   size="sm"

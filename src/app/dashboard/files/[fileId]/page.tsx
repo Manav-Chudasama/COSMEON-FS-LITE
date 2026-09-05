@@ -6,26 +6,31 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Globe,
   Hash,
   Loader2,
   Lock,
   Satellite,
   Search,
+  Share2,
   ShieldCheck,
   Trash2,
   TreePine,
+  User,
+  Users,
   XCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileRebuildModal } from "@/components/file-rebuild-modal";
 import { FileDeleteModal } from "@/components/file-delete-modal";
+import { FileShareModal } from "@/components/file-share-modal";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { IntegrityReport } from "@/lib/fs-lite/types";
+import type { IntegrityReport, ShareLink, SharedUser } from "@/lib/fs-lite/types";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -60,6 +65,11 @@ interface FileDetail {
   chunkCount: number;
   checksum: string;
   uploadedAt: string;
+  ownerId?: string;
+  ownerEmail?: string;
+  ownerName?: string;
+  sharedUsers?: SharedUser[];
+  shareLink?: ShareLink;
   chunks: {
     chunkId: string;
     index: number;
@@ -86,6 +96,11 @@ export default function FileDetailPage() {
   const params = useParams();
   const fileId = params.fileId as string;
   const [file, setFile] = useState<FileDetail | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    userId: string;
+    email: string;
+    name: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [report, setReport] = useState<IntegrityReport | null>(null);
@@ -97,10 +112,11 @@ export default function FileDetailPage() {
   >([]);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
-  useEffect(() => {
+  const loadFileData = useCallback(() => {
     fetch(`/api/fs/files/${fileId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -109,6 +125,16 @@ export default function FileDetailPage() {
       })
       .catch(() => setLoading(false));
   }, [fileId]);
+
+  useEffect(() => {
+    loadFileData();
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
+  }, [loadFileData]);
 
   const handleVerify = async () => {
     setVerifying(true);
@@ -241,6 +267,11 @@ export default function FileDetailPage() {
     );
   }
 
+  const isOwner =
+    !file.ownerId ||
+    !currentUser?.userId ||
+    file.ownerId === currentUser.userId;
+
   return (
     <div>
       <div className="mb-6">
@@ -252,15 +283,40 @@ export default function FileDetailPage() {
         </Link>
         <div className="flex items-center justify-between gap-4 min-w-0">
           <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight break-all">
-              {file.originalName}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight break-all">
+                {file.originalName}
+              </h1>
+              {!isOwner && (
+                <Badge
+                  variant="secondary"
+                  className="gap-1 rounded-none text-[9px] uppercase font-mono tracking-wider shrink-0"
+                >
+                  <Users className="h-3 w-3 text-primary" />
+                  Shared (Read Only)
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground truncate">
               {formatBytes(file.totalSize)} · {file.chunkCount} chunks ·{" "}
               {file.mimeType}
+              {file.ownerEmail && (
+                <> · Owner: <span className="text-foreground">{file.ownerName || file.ownerEmail}</span></>
+              )}
             </p>
           </div>
           <div className="flex gap-2">
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-xs"
+                onClick={() => setShareModalOpen(true)}
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Share
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -283,15 +339,17 @@ export default function FileDetailPage() {
               <Download className="h-3.5 w-3.5" />
               Download
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
-              onClick={() => setDeleteModalOpen(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete File
-            </Button>
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                onClick={() => setDeleteModalOpen(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete File
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -510,6 +568,107 @@ export default function FileDetailPage() {
         </Card>
       )}
 
+      {/* Access & Sharing Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Users className="h-4 w-4 text-primary" />
+              Access &amp; Sharing
+            </CardTitle>
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-target h-7 gap-1.5 text-xs rounded-none"
+                onClick={() => setShareModalOpen(true)}
+              >
+                <Share2 className="h-3 w-3" />
+                Manage Sharing
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div
+            className={`grid grid-cols-1 gap-4 text-xs ${
+              isOwner ? "md:grid-cols-3" : "md:grid-cols-2"
+            }`}
+          >
+            <div>
+              <p className="text-muted-foreground">Owner</p>
+              <p className="font-medium mt-0.5 truncate">
+                {file.ownerName || file.ownerEmail || "Constellation Operator"}
+              </p>
+              {file.ownerEmail && file.ownerName && (
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {file.ownerEmail}
+                </p>
+              )}
+            </div>
+
+            {!isOwner ? (
+              <div>
+                <p className="text-muted-foreground">Your Access</p>
+                <div className="mt-1">
+                  <Badge
+                    variant="outline"
+                    className="rounded-none border-primary/40 bg-primary/10 text-primary text-[10px] gap-1"
+                  >
+                    Read &amp; Download Only
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <p className="text-muted-foreground">Collaborators (Read Only)</p>
+                  <p className="mt-0.5 font-medium">
+                    {file.sharedUsers && file.sharedUsers.length > 0
+                      ? `${file.sharedUsers.length} collaborator${file.sharedUsers.length === 1 ? "" : "s"}`
+                      : "None"}
+                  </p>
+                  {file.sharedUsers && file.sharedUsers.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {file.sharedUsers.slice(0, 3).map((u) => (
+                        <Badge
+                          key={u.email}
+                          variant="outline"
+                          className="rounded-none text-[9px] px-1 py-0"
+                        >
+                          {u.email}
+                        </Badge>
+                      ))}
+                      {file.sharedUsers.length > 3 && (
+                        <span className="text-[9px] text-muted-foreground">
+                          +{file.sharedUsers.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Public Stream Link</p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    {file.shareLink?.enabled ? (
+                      <Badge
+                        variant="outline"
+                        className="rounded-none border-green-500/40 bg-green-500/10 text-green-500 text-[10px] gap-1"
+                      >
+                        <Globe className="h-2.5 w-2.5" />
+                        Active ({file.shareLink.downloads} downloads)
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">Disabled</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Chunk distribution table */}
       <Card>
         <CardHeader>
@@ -704,6 +863,14 @@ export default function FileDetailPage() {
         onDeleted={() => {
           router.push("/dashboard/files");
         }}
+      />
+
+      <FileShareModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        fileId={file?.fileId ?? null}
+        fileName={file?.originalName ?? ""}
+        onUpdated={loadFileData}
       />
     </div>
   );

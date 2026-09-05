@@ -1,14 +1,11 @@
 // ============================================
-// GET /api/fs/files — List files for the authenticated user
+// GET /api/fs/files/shared — Files shared with the current user
 // ============================================
 
-import { NextRequest, NextResponse } from "next/server";
-import { initEngine } from "@/lib/fs-lite";
-import { connectDB, FileModel } from "@/lib/fs-lite/db";
+import { type NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth/session";
-import type { FSFile } from "@/lib/fs-lite/types";
-
-export const dynamic = "force-dynamic";
+import { connectDB, FileModel, initEngine } from "@/lib/fs-lite";
+import type { FSFile, SharedUser, ShareLink } from "@/lib/fs-lite/types";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,24 +13,25 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const session = await getSessionFromRequest(request);
-
-    let query: Record<string, unknown> = {};
-
-    if (session?.userId) {
-      // Authenticated: show ONLY own files (+ legacy files without an owner). Shared files are listed exclusively in /api/fs/files/shared
-      query = {
-        $or: [
-          { ownerId: session.userId },
-          { ownerId: { $exists: false } },
-          { ownerId: null },
-        ],
-      };
+    if (!session?.userId) {
+      return NextResponse.json({ files: [], total: 0 });
     }
-    // Unauthenticated (no cookie): return all files — middleware handles protection for dashboard
 
-    const docs = await FileModel.find(query)
-      .sort({ uploadedAt: -1 })
-      .lean();
+    // Query files where the user is listed in sharedWith, sharedUsers.userId, or sharedUsers.email
+    const query = {
+      $and: [
+        { ownerId: { $ne: session.userId } }, // Don't return owned files here
+        {
+          $or: [
+            { sharedWith: session.userId },
+            { "sharedUsers.userId": session.userId },
+            { "sharedUsers.email": session.email?.toLowerCase() },
+          ],
+        },
+      ],
+    };
+
+    const docs = await FileModel.find(query).sort({ updatedAt: -1, uploadedAt: -1 }).lean();
 
     const files: FSFile[] = docs.map((doc) => ({
       fileId: doc.fileId as string,
@@ -50,8 +48,8 @@ export async function GET(request: NextRequest) {
       ownerEmail: (doc.ownerEmail as string) || undefined,
       ownerName: (doc.ownerName as string) || undefined,
       sharedWith: (doc.sharedWith as string[]) || [],
-      sharedUsers: (doc.sharedUsers as any) || [],
-      shareLink: (doc.shareLink as any) || undefined,
+      sharedUsers: (doc.sharedUsers as SharedUser[]) || [],
+      shareLink: (doc.shareLink as ShareLink) || undefined,
       encrypted: (doc.encrypted as boolean) || false,
     }));
 
@@ -60,11 +58,9 @@ export async function GET(request: NextRequest) {
       total: files.length,
     });
   } catch (error) {
-    console.error("[FS-LITE] List files error:", error);
+    console.error("[FS-LITE] List shared files error:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to list files",
-      },
+      { error: error instanceof Error ? error.message : "Failed to fetch shared files" },
       { status: 500 },
     );
   }

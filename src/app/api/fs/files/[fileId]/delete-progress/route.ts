@@ -7,6 +7,7 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
+import { getSessionFromRequest } from "@/lib/auth/session";
 import {
   chunkCache,
   DEFAULT_CONFIG,
@@ -20,7 +21,7 @@ import {
 import { simulateLatency } from "@/lib/fs-lite/simulate-latency";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   try {
@@ -30,6 +31,14 @@ export async function POST(
     const file = await getFile(fileId);
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    const session = await getSessionFromRequest(request);
+    if (file.ownerId && session?.userId && file.ownerId !== session.userId) {
+      return NextResponse.json(
+        { error: "Forbidden: Collaborators have read-only access and cannot delete this file" },
+        { status: 403 },
+      );
     }
 
     const sortedChunks = [...file.chunks].sort((a, b) => a.index - b.index);

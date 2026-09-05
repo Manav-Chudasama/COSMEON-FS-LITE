@@ -8,6 +8,7 @@ import {
   Moon,
   Satellite,
   ScrollText,
+  Share2,
   ShieldCheck,
   Sun,
   User,
@@ -41,6 +42,11 @@ const navItems = [
     title: "Files",
     href: "/dashboard/files",
     icon: Files,
+  },
+  {
+    title: "Shared with Me",
+    href: "/dashboard/shared",
+    icon: Share2,
   },
   {
     title: "Nodes",

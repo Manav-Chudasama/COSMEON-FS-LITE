@@ -5,6 +5,7 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
+import { getSessionFromRequest } from "@/lib/auth/session";
 import {
   chunkCache,
   DEFAULT_CONFIG,
@@ -45,10 +46,25 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({
+    const session = await getSessionFromRequest(_request);
+    const isOwner =
+      !file.ownerId ||
+      (session?.userId ? file.ownerId === session.userId : true);
+
+    // If caller is NOT the owner (e.g. collaborator), omit owner-only metadata
+    const responsePayload = {
       ...file,
       chunks: enrichedChunks,
-    });
+      ...(isOwner
+        ? {}
+        : {
+            sharedUsers: [],
+            sharedWith: [],
+            shareLink: undefined,
+          }),
+    };
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error("[FS-LITE] File detail error:", error);
     return NextResponse.json(
@@ -67,10 +83,20 @@ export async function DELETE(
     await initEngine();
     const { fileId } = await params;
 
-    const file = await deleteFile(fileId);
+    const file = await getFile(fileId);
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
+
+    const session = await getSessionFromRequest(_request);
+    if (file.ownerId && session?.userId && file.ownerId !== session.userId) {
+      return NextResponse.json(
+        { error: "Forbidden: Collaborators have read-only access and cannot delete this file" },
+        { status: 403 },
+      );
+    }
+
+    await deleteFile(fileId);
 
     // Delete chunk files from nodes
     for (const chunk of file.chunks) {

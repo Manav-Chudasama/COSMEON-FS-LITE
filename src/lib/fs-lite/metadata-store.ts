@@ -4,7 +4,13 @@
 
 import { connectDB, FileModel } from "./db";
 import { fsLogger } from "./logger";
-import type { EncryptionMeta, FSChunk, FSFile } from "./types";
+import type {
+  EncryptionMeta,
+  FSChunk,
+  FSFile,
+  SharedUser,
+  ShareLink,
+} from "./types";
 
 // In-memory fallback cache
 let filesCache: Map<string, FSFile> = new Map();
@@ -28,7 +34,7 @@ async function syncFromDB(): Promise<void> {
 /**
  * Convert a MongoDB document to FSFile.
  */
-function docToFSFile(doc: Record<string, unknown>): FSFile {
+export function docToFSFile(doc: Record<string, unknown>): FSFile {
   return {
     fileId: doc.fileId as string,
     originalName: doc.originalName as string,
@@ -41,7 +47,11 @@ function docToFSFile(doc: Record<string, unknown>): FSFile {
     version: (doc.version as number) || 1,
     chunks: (doc.chunks as FSChunk[]) || [],
     ownerId: (doc.ownerId as string) || undefined,
+    ownerEmail: (doc.ownerEmail as string) || undefined,
+    ownerName: (doc.ownerName as string) || undefined,
     sharedWith: (doc.sharedWith as string[]) || [],
+    sharedUsers: (doc.sharedUsers as SharedUser[]) || [],
+    shareLink: (doc.shareLink as ShareLink) || undefined,
     encrypted: (doc.encrypted as boolean) || false,
     encryptionMeta: (doc.encryptionMeta as EncryptionMeta) || undefined,
   };
@@ -81,14 +91,18 @@ export async function addFile(file: FSFile): Promise<FSFile> {
 }
 
 /**
+ * Update a file in the in-memory cache.
+ */
+export function updateFileInCache(file: FSFile): void {
+  filesCache.set(file.fileId, file);
+}
+
+/**
  * Get a file by ID.
+ * Queries MongoDB first so that external/atomic updates (like download counts and share settings)
+ * are immediately reflected, and falls back to the in-memory cache if MongoDB is offline.
  */
 export async function getFile(fileId: string): Promise<FSFile | null> {
-  // Check in-memory first
-  const cached = filesCache.get(fileId);
-  if (cached) return cached;
-
-  // Try MongoDB
   try {
     await connectDB();
     const doc = await FileModel.findOne({ fileId }).lean();
@@ -98,10 +112,10 @@ export async function getFile(fileId: string): Promise<FSFile | null> {
       return file;
     }
   } catch {
-    // Continue without persistence
+    // MongoDB unavailable, fall through to in-memory cache
   }
 
-  return null;
+  return filesCache.get(fileId) || null;
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   Download,
   FileIcon,
   Lock,
+  Share2,
   ShieldCheck,
   Trash2,
   Upload,
@@ -16,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileRebuildModal } from "@/components/file-rebuild-modal";
 import { FileDeleteModal } from "@/components/file-delete-modal";
+import { FileShareModal } from "@/components/file-share-modal";
 import {
   Dialog,
   DialogContent,
@@ -111,7 +113,24 @@ export default function FilesPage() {
     fileName: "",
   });
 
+  // Sharing modal state
+  const [shareModal, setShareModal] = useState<{
+    open: boolean;
+    fileId: string | null;
+    fileName: string;
+  }>({
+    open: false,
+    fileId: null,
+    fileName: "",
+  });
 
+
+
+  const [currentUser, setCurrentUser] = useState<{
+    userId: string;
+    email: string;
+    name: string;
+  } | null>(null);
 
   const fetchFiles = useCallback(() => {
     fetch("/api/fs/files")
@@ -125,6 +144,12 @@ export default function FilesPage() {
 
   useEffect(() => {
     fetchFiles();
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
   }, [fetchFiles]);
 
   const resetUploadState = () => {
@@ -274,6 +299,12 @@ export default function FilesPage() {
       ? Math.round((uploadProgress.current / uploadProgress.total) * 100)
       : 0;
 
+  const ownedFiles = files.filter(
+    (file) =>
+      !file.ownerId ||
+      !currentUser?.userId ||
+      file.ownerId === currentUser.userId,
+  );
 
   return (
     <div>
@@ -442,17 +473,9 @@ export default function FilesPage() {
                                 ✓
                               </motion.div>
                             ) : status === "active" ? (
-                              <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{
-                                  duration: 1,
-                                  repeat: Infinity,
-                                  ease: "linear",
-                                }}
-                                className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent"
-                              />
+                              <div className="h-3.5 w-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                             ) : (
-                              <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />
+                              <div className="h-2.5 w-2.5 rounded-full border border-muted-foreground/30" />
                             )}
                           </div>
                           <span
@@ -465,82 +488,50 @@ export default function FilesPage() {
                             }`}
                           >
                             {stageLabels[stage]}
-                            {stage === "write" &&
+                            {stage === "distribute" &&
                               uploadProgress.total > 0 &&
                               status === "active" && (
-                                <span className="ml-1.5 font-mono text-primary">
-                                  {uploadProgress.current}/
-                                  {uploadProgress.total}
+                                <span className="ml-1 font-mono text-primary">
+                                  {uploadProgress.current}/{uploadProgress.total}
                                 </span>
                               )}
                           </span>
                         </motion.div>
                       );
                     })}
+                  </div>
+
+                  {/* Progress bar for distribution */}
+                  {uploadProgress.total > 0 && (
+                    <div>
+                      <Progress value={progressPercent} className="h-1.5" />
+                      <p className="mt-1 text-right text-[10px] text-muted-foreground font-mono">
+                        {progressPercent}% • {uploadProgress.current} of{" "}
+                        {uploadProgress.total} chunks
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Live Feed */}
+                  <ScrollArea className="h-24 rounded border bg-muted/30 p-2 font-mono text-[10px]">
+                    <AnimatePresence>
+                      {uploadEvents.slice(-10).map((event, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="flex items-center gap-1.5 py-0.5 text-muted-foreground"
+                        >
+                          <span className="text-primary">→</span>
+                          {event.message}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </ScrollArea>
                 </div>
-
-                {/* Progress bar for chunk writes */}
-                {uploadProgress.total > 0 && (
-                  <div>
-                    <Progress value={progressPercent} className="h-2" />
-                    <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                      {progressPercent}% • {uploadProgress.current} of{" "}
-                      {uploadProgress.total} chunks
-                    </p>
-                  </div>
-                )}
-
-                {/* Live feed */}
-                {uploadEvents.length > 0 && (
-                  <div>
-                    <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
-                      LIVE FEED
-                    </p>
-                    <ScrollArea className="h-32 rounded-md border bg-muted/30 p-2">
-                      <AnimatePresence>
-                        {uploadEvents
-                          .filter(
-                            (e) =>
-                              e.stage === "write" ||
-                              e.stage === "checksum_done" ||
-                              e.stage === "split_done" ||
-                              e.stage === "distribute_done" ||
-                              e.stage === "replicate_done" ||
-                              e.stage === "complete",
-                          )
-                          .slice(-20)
-                          .map((event, i) => (
-                            <motion.div
-                              key={i}
-                              initial={{ opacity: 0, y: 5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="flex items-center gap-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
-                            >
-                              <span className="text-primary">→</span>
-                              {event.message}
-                            </motion.div>
-                          ))}
-                      </AnimatePresence>
-                    </ScrollArea>
-                  </div>
-                )}
-
-                {/* Complete check */}
-                {uploadStage === "complete" && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 py-3 text-xs font-medium text-green-500"
-                  >
-                    <span className="text-base">✓</span> Upload Complete
-                  </motion.div>
-                )}
-              </div>
-            )}
-          </DialogContent>
+              )}
+            </DialogContent>
         </Dialog>
-
-
 
         {/* Rebuilding download progress dialog */}
         <FileRebuildModal
@@ -557,7 +548,7 @@ export default function FilesPage() {
         <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           Loading files...
         </div>
-      ) : files.length === 0 ? (
+      ) : ownedFiles.length === 0 ? (
         <motion.div
           className="flex h-40 flex-col items-center justify-center text-center"
           initial={{ opacity: 0 }}
@@ -585,84 +576,126 @@ export default function FilesPage() {
             </TableHeader>
             <TableBody>
               <AnimatePresence mode="popLayout">
-                {files.map((file, i) => (
-                  <motion.tr
-                    key={file.fileId}
-                    variants={rowVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    transition={{ delay: i * 0.05 }}
-                    className="cursor-target border-b transition-colors hover:bg-muted/50"
-                  >
-                    <TableCell className="max-w-[200px] sm:max-w-[350px]">
-                      <Link
-                        href={`/dashboard/files/${file.fileId}`}
-                        className="flex items-center gap-2 text-xs font-medium hover:text-primary min-w-0"
-                      >
-                        <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate" title={file.originalName}>
-                          {file.originalName}
-                        </span>
-                        {file.encrypted && (
-                          <Badge
-                            variant="outline"
-                            className="shrink-0 gap-1 border-primary/30 text-[9px] text-primary px-1.5 py-0"
-                          >
-                            <Lock className="h-2.5 w-2.5" />
-                            AES-256
-                          </Badge>
-                        )}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {formatBytes(file.totalSize)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs">{file.chunkCount}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(file.uploadedAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() =>
-                            handleDownload(file.fileId, file.originalName)
-                          }
+                {ownedFiles.map((file, i) => {
+                  const isOwner =
+                    !file.ownerId ||
+                    (currentUser?.userId
+                      ? file.ownerId === currentUser.userId
+                      : true);
+                  const isSharedWithUser =
+                    file.ownerId &&
+                    currentUser?.userId &&
+                    file.ownerId !== currentUser.userId;
+
+                  return (
+                    <motion.tr
+                      key={file.fileId}
+                      variants={rowVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      transition={{ delay: i * 0.05 }}
+                      className="cursor-target border-b transition-colors hover:bg-muted/50"
+                    >
+                      <TableCell className="max-w-[200px] sm:max-w-[350px]">
+                        <Link
+                          href={`/dashboard/files/${file.fileId}`}
+                          className="flex items-center gap-2 text-xs font-medium hover:text-primary min-w-0"
                         >
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
-                        <Link href={`/dashboard/files/${file.fileId}`}>
+                          <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate" title={file.originalName}>
+                            {file.originalName}
+                          </span>
+                          {file.encrypted && (
+                            <Badge
+                              variant="outline"
+                              className="shrink-0 gap-1 border-primary/30 text-[9px] text-primary px-1.5 py-0"
+                            >
+                              <Lock className="h-2.5 w-2.5" />
+                              AES-256
+                            </Badge>
+                          )}
+                          {isSharedWithUser && (
+                            <Badge
+                              variant="outline"
+                              className="shrink-0 border-border text-[9px] text-muted-foreground px-1.5 py-0"
+                            >
+                              Shared
+                            </Badge>
+                          )}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {formatBytes(file.totalSize)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{file.chunkCount}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatDate(file.uploadedAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
+                            title="Download File"
+                            onClick={() =>
+                              handleDownload(file.fileId, file.originalName)
+                            }
                           >
-                            <ShieldCheck className="h-3.5 w-3.5" />
+                            <Download className="h-3.5 w-3.5" />
                           </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() =>
-                            handleDelete(
-                              file.fileId,
-                              file.originalName,
-                              file.chunkCount,
-                            )
-                          }
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </motion.tr>
-                ))}
+                          <Link href={`/dashboard/files/${file.fileId}`}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Inspect Chunks & Integrity"
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
+                          {isOwner && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                title="Share File"
+                                onClick={() =>
+                                  setShareModal({
+                                    open: true,
+                                    fileId: file.fileId,
+                                    fileName: file.originalName,
+                                  })
+                                }
+                              >
+                                <Share2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                title="Delete File"
+                                onClick={() =>
+                                  handleDelete(
+                                    file.fileId,
+                                    file.originalName,
+                                    file.chunkCount,
+                                  )
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </motion.tr>
+                  );
+                })}
               </AnimatePresence>
             </TableBody>
           </Table>
@@ -689,6 +722,17 @@ export default function FilesPage() {
         fileName={deleteModal.fileName}
         chunkCount={deleteModal.chunkCount}
         onDeleted={fetchFiles}
+      />
+
+      {/* File Share Modal */}
+      <FileShareModal
+        open={shareModal.open}
+        onOpenChange={(open) =>
+          setShareModal((prev) => ({ ...prev, open }))
+        }
+        fileId={shareModal.fileId}
+        fileName={shareModal.fileName}
+        onUpdated={fetchFiles}
       />
     </div>
   );

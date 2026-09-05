@@ -335,6 +335,10 @@ export async function POST(request: NextRequest) {
             merkleRoot: merkle.root,
             merkleTree: merkle.tree,
             ownerId: (await getSessionFromRequest(request))?.userId,
+            ownerEmail: (await getSessionFromRequest(request))?.email,
+            ownerName: (await getSessionFromRequest(request))?.name,
+            sharedWith: [],
+            sharedUsers: [],
             encrypted: shouldEncrypt,
             encryptionMeta,
           };

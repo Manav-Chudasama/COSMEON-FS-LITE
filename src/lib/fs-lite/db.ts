@@ -74,7 +74,37 @@ const fileSchema = new mongoose.Schema(
     chunks: { type: [chunkSubSchema], default: [] },
     // ── Ownership & Sharing ──
     ownerId: { type: String, index: true },
+    ownerEmail: { type: String },
+    ownerName: { type: String },
     sharedWith: { type: [String], default: [] },
+    sharedUsers: {
+      type: [
+        new mongoose.Schema(
+          {
+            userId: { type: String, required: true },
+            email: { type: String, required: true },
+            name: { type: String },
+            sharedAt: { type: String, required: true },
+            permission: { type: String, default: "read" },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    shareLink: {
+      type: new mongoose.Schema(
+        {
+          enabled: { type: Boolean, default: false },
+          token: { type: String, index: true, sparse: true },
+          expiresAt: { type: Date, default: null },
+          downloads: { type: Number, default: 0 },
+          createdAt: { type: String },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     // ── Encryption ──
     encrypted: { type: Boolean, default: false },
     encryptionMeta: {
@@ -164,7 +194,11 @@ const otpSchema = new mongoose.Schema(
 );
 
 // Prevent model recompilation in Next.js hot reload, but invalidate if schema is stale
-if (mongoose.models.File && !mongoose.models.File.schema.paths["encrypted"]) {
+if (
+  mongoose.models.File &&
+  (!mongoose.models.File.schema.paths["encrypted"] ||
+    !mongoose.models.File.schema.paths["shareLink.token"])
+) {
   delete (mongoose.models as Record<string, unknown>).File;
 }
 

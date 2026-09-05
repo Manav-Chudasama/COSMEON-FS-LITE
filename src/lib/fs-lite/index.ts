@@ -63,11 +63,13 @@ export {
 export {
   addFile,
   deleteFile,
+  docToFSFile,
   getFile,
   getFilesOnNode,
   initMetadataStore,
   listFiles,
   updateFileChunks,
+  updateFileInCache,
 } from "./metadata-store";
 export {
   createNode,
@@ -107,6 +109,8 @@ export type {
   NodeStatus,
   OtpType,
   RebalanceReport,
+  SharedUser,
+  ShareLink,
   StorageMode,
   SystemStats,
   UploadResult,

@@ -76,6 +76,33 @@
   - Standard action buttons use `size="sm" text-xs`.
   - Destructive triggers use `variant="destructive"` or `variant="outline"` with `text-destructive hover:bg-destructive/10 border-destructive/30`.
 
+## File Sharing & Access Control Design Rules
+
+- **Permission & Privacy Architecture:**
+  - Collaborators strictly receive **Read & Download** permissions. Under no circumstances should non-owners have access to delete actions (in UI or backend).
+  - Deletion triggers (`Trash2` buttons, Purge dialogs) must be hidden on both main files page and detail pages when `!isOwner`.
+  - Collaborators viewing a file detail page see a badge: `Shared with You (Read Only)`.
+  - **Access & Sharing Privacy:** Non-owners must NEVER see the list/count of other collaborators or the public stream link status and download stats. The Access & Sharing card for collaborators exclusively shows the Owner info and `Your Access: Read & Download Only`.
+  - **Files Separation:** The main Files page (`/dashboard/files`) strictly lists files owned by the user. Files shared with the user reside exclusively in the **Shared with Me** page (`/dashboard/shared`).
+- **Shared with Me Page (`/dashboard/shared`):**
+  - Dedicated page accessible from sidebar under `Files`.
+  - Clean monospace table with sharp corners (`rounded-none`, `border-border`).
+  - Columns: File Name (with AES-256 badge), Owner, Size, Chunks, Read Only badge, Shared date, Actions.
+  - Actions strictly limited to **Download** (via `FileRebuildModal`) and **Inspect** (link to `/dashboard/files/[fileId]`). No delete button is ever rendered.
+  - Empty state matches orbital theme with `Share2` icon and informative copy.
+- **File Share Modal (`FileShareModal`):**
+  - Triggered from files table and file detail header via `Share2` icon button.
+  - Dual-tab design using Shadcn `Tabs` with `rounded-none` borders:
+    - **Collaborators Tab:** Quick email input form to grant access, list of collaborators with `Read & Download` badge and owner-only revoke button.
+    - **Public Link Tab:** Toggle switch to activate/deactivate link, expiration selector (1h, 24h, 7d, Never) bi-directionally synchronized with server timestamps, copyable link field with one-click copy button, and real-time live download counter.
+- **Public Share Portal (`/share/[token]`):**
+  - External, unauthenticated portal for link recipients.
+  - Branded header with `Satellite` mark and orbital theme.
+  - Handles 404 (invalid), 403 (revoked), and 410 (expired) states with clear alert cards.
+  - Reconstruct & Download button drives real-time NDJSON stream stepper, on-the-fly AES-256 decryption, and automated browser download.
+  - Link Expiry displays readable relative time remaining (e.g. `~24h left`, `~45m left`) with full localized timestamp in tooltip.
+  - Download count increments atomically on MongoDB and local in-memory cache upon download start/completion.
+
 ## General Rules
 
 1. Never use external colors or hardcoded hex values — always use CSS variables
@@ -83,3 +110,4 @@
 3. All interactive elements must have hover/focus states
 4. Micro-animations via `motion/react` where appropriate (already used in dashboard)
 5. Toasts via `sonner` for success/error feedback (already wired globally)
+
