@@ -103,6 +103,19 @@
   - Link Expiry displays readable relative time remaining (e.g. `~24h left`, `~45m left`) with full localized timestamp in tooltip.
   - Download count increments atomically on MongoDB and local in-memory cache upon download start/completion.
 
+## Upload to Constellation Modal Behavior
+
+- **State Persistence:**
+  - The modal must never close automatically upon upload completion.
+  - When the upload stream finishes (`stage === "complete"`), the UI remains on the completed stepper view showing:
+    - All 4 completed stage checkmarks.
+    - Green completion banner: `✓ Upload Complete — Constellation Synchronized`.
+    - Live feed log showing the chunk distribution history.
+- **Actions (`DialogFooter`):**
+  - **Upload Another:** Resets state back to the pre-upload drop zone and allows uploading another file.
+  - **Close:** Dismisses the modal and resets the state.
+  - During active upload, modal dismissal is prevented and a disabled `Distributing Chunks...` indicator with `Loader2` is shown.
+
 ## General Rules
 
 1. Never use external colors or hardcoded hex values — always use CSS variables

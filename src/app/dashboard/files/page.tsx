@@ -3,6 +3,7 @@
 import {
   Download,
   FileIcon,
+  Loader2,
   Lock,
   Share2,
   ShieldCheck,
@@ -21,6 +22,7 @@ import { FileShareModal } from "@/components/file-share-modal";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -214,14 +216,10 @@ export default function FilesPage() {
               const result = event.result as {
                 file: { originalName: string; chunkCount: number };
               };
-              toast.success(`"${result.file.originalName}" uploaded`, {
-                description: `${result.file.chunkCount} chunks distributed across nodes`,
+              toast.success(`"${result.file?.originalName || "File"}" uploaded`, {
+                description: `${result.file?.chunkCount || 0} chunks distributed across nodes`,
               });
-              setTimeout(() => {
-                setUploadOpen(false);
-                resetUploadState();
-                fetchFiles();
-              }, 800);
+              fetchFiles();
             } else if (event.stage === "error") {
               toast.error(event.message as string);
             }
@@ -306,6 +304,8 @@ export default function FilesPage() {
       file.ownerId === currentUser.userId,
   );
 
+  const isUploadingOrDone = uploading || uploadStage !== "";
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -319,10 +319,9 @@ export default function FilesPage() {
         <Dialog
           open={uploadOpen}
           onOpenChange={(open) => {
-            if (!uploading) {
-              setUploadOpen(open);
-              if (!open) resetUploadState();
-            }
+            if (uploading && uploadStage !== "complete") return;
+            setUploadOpen(open);
+            if (!open) resetUploadState();
           }}
         >
           <DialogTrigger asChild>
@@ -338,7 +337,7 @@ export default function FilesPage() {
               </DialogTitle>
             </DialogHeader>
 
-            {!uploading ? (
+            {!isUploadingOrDone ? (
               /* ─── Pre-upload: strategy + drop zone ─── */
               <div className="mt-2 space-y-4">
                 <div className="grid grid-cols-2 gap-5">
@@ -528,6 +527,53 @@ export default function FilesPage() {
                       ))}
                     </AnimatePresence>
                   </ScrollArea>
+
+                  {/* Completed Banner */}
+                  {uploadStage === "complete" && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex items-center justify-center gap-2 border border-green-500/30 bg-green-500/10 p-2.5 text-xs font-medium text-green-500 font-mono"
+                    >
+                      <span>✓</span> Upload Complete — Constellation Synchronized
+                    </motion.div>
+                  )}
+
+                  {/* Dialog Footer */}
+                  <DialogFooter className="mt-4 sm:justify-end gap-2">
+                    {uploadStage === "complete" ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="cursor-target text-xs rounded-none"
+                          onClick={resetUploadState}
+                        >
+                          Upload Another
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="cursor-target text-xs rounded-none"
+                          onClick={() => {
+                            setUploadOpen(false);
+                            resetUploadState();
+                          }}
+                        >
+                          Close
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs rounded-none"
+                        disabled
+                      >
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        Distributing Chunks...
+                      </Button>
+                    )}
+                  </DialogFooter>
                 </div>
               )}
             </DialogContent>
