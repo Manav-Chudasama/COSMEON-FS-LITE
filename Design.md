@@ -116,6 +116,27 @@
   - **Close:** Dismisses the modal and resets the state.
   - During active upload, modal dismissal is prevented and a disabled `Distributing Chunks...` indicator with `Loader2` is shown.
 
+## Node Failure & Recovery Simulation Modal Behavior
+
+- **State Persistence:**
+  - The simulation modal must never close automatically upon completion of failure or recovery rebalancing.
+  - When the rebalance stream completes (`stage === "complete"` or `"report"`), the UI remains on the completed stepper view showing:
+    - All completed stage checkmarks.
+    - Progress bar at 100%.
+    - Live feed log showing migration and status change records.
+    - Completed status banner (`Failure Simulation Complete` or `Recovery Complete`) with sharp corners (`rounded-none`).
+- **Actions (`DialogFooter`):**
+  - **Close:** Dismisses the modal and resets the state (`rounded-none`, `size="sm"`).
+  - During active rebalancing, modal dismissal is prevented and a disabled indicator (`Rebalancing Constellation...` / `Synchronizing Node...`) with `Loader2` is shown.
+
+## Cursor & Interaction Design Rules
+
+- **Native Cursor Experience:**
+  - Do NOT use custom JavaScript/GSAP target cursors (`TargetCursor` / `ClientCursor`).
+  - Never hide the system cursor (`cursor: none` is strictly prohibited).
+  - All interactive triggers (`button`, `[role="button"]`, `[role="tab"]`, `[role="switch"]`, `[role="menuitem"]`, `[role="option"]`, `a[href]`, `select`, checkboxes, radios, labels) MUST display standard browser `cursor: pointer`.
+  - Disabled interactive elements must display `cursor: not-allowed` or `pointer-events-none`.
+
 ## General Rules
 
 1. Never use external colors or hardcoded hex values — always use CSS variables
@@ -123,4 +144,5 @@
 3. All interactive elements must have hover/focus states
 4. Micro-animations via `motion/react` where appropriate (already used in dashboard)
 5. Toasts via `sonner` for success/error feedback (already wired globally)
+
 

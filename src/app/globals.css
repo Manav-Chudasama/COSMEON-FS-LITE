@@ -247,13 +247,19 @@
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
   }
-}
 
-/* TargetCursor: hide default cursor on target elements */
-.cursor-target {
-  cursor: none;
-}
-
-.cursor-target * {
-  cursor: none;
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  label[for],
+  .cursor-pointer {
+    cursor: pointer;
+  }
 }

@@ -269,7 +269,7 @@ export function FileShareModal({
                 type="submit"
                 size="sm"
                 disabled={addingCollaborator || !emailInput.trim()}
-                className="cursor-target rounded-none gap-1.5 text-xs shrink-0"
+                className="rounded-none gap-1.5 text-xs shrink-0"
               >
                 {addingCollaborator ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -329,7 +329,7 @@ export function FileShareModal({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="cursor-target h-6 w-6 text-muted-foreground hover:text-destructive"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
                           onClick={() => handleRemoveCollaborator(c.email)}
                           title="Revoke access"
                         >
@@ -434,7 +434,7 @@ export function FileShareModal({
                         size="sm"
                         variant="outline"
                         onClick={handleCopyLink}
-                        className="cursor-target h-8 rounded-none gap-1.5 text-xs shrink-0"
+                        className="h-8 rounded-none gap-1.5 text-xs shrink-0"
                       >
                         {copied ? (
                           <Check className="h-3.5 w-3.5 text-green-500" />

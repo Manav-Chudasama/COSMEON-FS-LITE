@@ -4,8 +4,8 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { connectDB, LogModel } from "./db";
-import type { FSLogEntry, LogEventType } from "./types";
-import { DEFAULT_CONFIG } from "./types";
+import type { FSLogEntry, LogCategory, LogEventType } from "./types";
+import { DEFAULT_CONFIG, LOG_CATEGORIES } from "./types";
 
 class FSLogger {
   private entries: FSLogEntry[] = [];
@@ -107,6 +107,50 @@ class FSLogger {
   /** Get the most recent N entries */
   getRecent(count: number): FSLogEntry[] {
     return this.entries.slice(0, count);
+  }
+
+  /** Get entries filtered by category, type, or limit from MongoDB (with in-memory fallback) */
+  async getFiltered(options: {
+    category?: LogCategory;
+    type?: LogEventType;
+    limit?: number;
+  }): Promise<FSLogEntry[]> {
+    const limit = options.limit || this.maxEntries;
+    let targetTypes: LogEventType[] | null = null;
+
+    if (options.category && LOG_CATEGORIES[options.category]) {
+      targetTypes = LOG_CATEGORIES[options.category];
+    } else if (options.type) {
+      targetTypes = [options.type];
+    }
+
+    try {
+      await connectDB();
+      const query = targetTypes ? { type: { $in: targetTypes } } : {};
+      const dbLogs = await LogModel.find(query)
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .lean();
+
+      if (dbLogs && dbLogs.length > 0) {
+        return dbLogs.map((doc) => ({
+          id: doc.id as string,
+          timestamp: doc.timestamp as string,
+          type: doc.type as LogEventType,
+          message: doc.message as string,
+          metadata: doc.metadata as Record<string, unknown> | undefined,
+        }));
+      }
+    } catch {
+      // Database unavailable, fallback to in-memory
+    }
+
+    if (targetTypes) {
+      return this.entries
+        .filter((e) => targetTypes.includes(e.type))
+        .slice(0, limit);
+    }
+    return this.entries.slice(0, limit);
   }
 
   /** Clear all entries */

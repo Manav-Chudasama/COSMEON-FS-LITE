@@ -3,7 +3,7 @@
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
-import type { LogEventType } from "@/lib/fs-lite";
+import type { LogCategory, LogEventType } from "@/lib/fs-lite";
 import { fsLogger, initEngine } from "@/lib/fs-lite";
 
 export const dynamic = "force-dynamic";
@@ -13,16 +13,15 @@ export async function GET(request: NextRequest) {
     await initEngine();
 
     const { searchParams } = new URL(request.url);
+    const category = searchParams.get("category") as LogCategory | null;
     const type = searchParams.get("type") as LogEventType | null;
-    const limit = parseInt(searchParams.get("limit") || "100", 10);
+    const limit = parseInt(searchParams.get("limit") || "500", 10);
 
-    let entries: ReturnType<typeof fsLogger.getRecent>;
-
-    if (type) {
-      entries = fsLogger.getByType(type);
-    } else {
-      entries = fsLogger.getRecent(limit);
-    }
+    const entries = await fsLogger.getFiltered({
+      category: category || undefined,
+      type: type || undefined,
+      limit,
+    });
 
     return NextResponse.json({
       entries,

@@ -118,7 +118,7 @@ export default function SharedPage() {
           <Button
             variant="outline"
             size="sm"
-            className="cursor-target gap-1.5 text-xs"
+            className="gap-1.5 text-xs"
             onClick={fetchSharedFiles}
             disabled={loading}
           >
@@ -187,7 +187,7 @@ export default function SharedPage() {
                     animate="visible"
                     exit="exit"
                     transition={{ delay: i * 0.04 }}
-                    className="cursor-target border-b transition-colors hover:bg-muted/50"
+                    className="border-b transition-colors hover:bg-muted/50"
                   >
                     {/* File Name */}
                     <TableCell className="max-w-[200px] sm:max-w-[300px]">
@@ -257,7 +257,7 @@ export default function SharedPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="cursor-target h-7 w-7"
+                          className="h-7 w-7"
                           title="Stream Rebuild & Download"
                           onClick={() =>
                             handleDownload(file.fileId, file.originalName)
@@ -269,7 +269,7 @@ export default function SharedPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="cursor-target h-7 w-7"
+                            className="h-7 w-7"
                             title="View Integrity & Distribution"
                           >
                             <ShieldCheck className="h-3.5 w-3.5" />

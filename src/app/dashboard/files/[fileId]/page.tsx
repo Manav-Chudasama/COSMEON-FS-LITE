@@ -580,7 +580,7 @@ export default function FileDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="cursor-target h-7 gap-1.5 text-xs rounded-none"
+                className="h-7 gap-1.5 text-xs rounded-none"
                 onClick={() => setShareModalOpen(true)}
               >
                 <Share2 className="h-3 w-3" />

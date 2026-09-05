@@ -155,7 +155,7 @@ export default function LandingPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs cursor-target hover:bg-primary/10 transition-colors"
+              className="text-xs hover:bg-primary/10 transition-colors"
             >
               Sign In
             </Button>
@@ -164,7 +164,7 @@ export default function LandingPage() {
             <Button
               variant="outline"
               size="sm"
-              className="text-xs cursor-target border-primary/20 hover:bg-primary/10 transition-colors"
+              className="text-xs border-primary/20 hover:bg-primary/10 transition-colors"
             >
               Launch Dashboard
             </Button>
@@ -186,7 +186,7 @@ export default function LandingPage() {
               variants={itemVariants}
               className="mb-6 pointer-events-auto"
             >
-              <div className="cursor-target inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium shadow-sm shadow-primary/10 backdrop-blur-md">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium shadow-sm shadow-primary/10 backdrop-blur-md">
                 <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                 <AnimatedShinyText className="inline-flex items-center justify-center transition ease-out hover:text-primary hover:duration-300">
                   <span className="text-primary/90">Next-Gen Storage</span>
@@ -218,7 +218,7 @@ export default function LandingPage() {
             >
               <Link
                 href="/dashboard"
-                className="cursor-target block w-full sm:w-auto"
+                className="block w-full sm:w-auto"
               >
                 <Button
                   size="lg"
@@ -230,7 +230,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/dashboard/nodes"
-                className="cursor-target block w-full sm:w-auto"
+                className="block w-full sm:w-auto"
               >
                 <Button
                   variant="outline"
@@ -301,7 +301,7 @@ export default function LandingPage() {
               className="h-full"
             >
               <MagicCard
-                className="cursor-target group flex h-full flex-col p-8 overflow-hidden bg-card/40 backdrop-blur-sm border-border/50 hover:border-primary/50 transition-colors"
+                className="group flex h-full flex-col p-8 overflow-hidden bg-card/40 backdrop-blur-sm border-border/50 hover:border-primary/50 transition-colors"
               >
                 <div className="mb-4 inline-flex rounded-lg bg-primary/10 p-3">
                   <feature.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
@@ -340,7 +340,7 @@ export default function LandingPage() {
               {firstRow.map((useCase) => (
                 <MagicCard
                   key={useCase.title}
-                  className="cursor-target group flex w-80 flex-col p-6 overflow-hidden bg-card/20 backdrop-blur-md border-border/40 hover:border-primary/40 transition-colors"
+                  className="group flex w-80 flex-col p-6 overflow-hidden bg-card/20 backdrop-blur-md border-border/40 hover:border-primary/40 transition-colors"
                 >
                   <div className="mb-4 inline-flex items-center justify-center rounded-xl bg-primary/10 w-12 h-12">
                     <useCase.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
@@ -358,7 +358,7 @@ export default function LandingPage() {
               {secondRow.map((useCase) => (
                 <MagicCard
                   key={useCase.title}
-                  className="cursor-target group flex w-80 flex-col p-6 overflow-hidden bg-card/20 backdrop-blur-md border-border/40 hover:border-primary/40 transition-colors"
+                  className="group flex w-80 flex-col p-6 overflow-hidden bg-card/20 backdrop-blur-md border-border/40 hover:border-primary/40 transition-colors"
                 >
                   <div className="mb-4 inline-flex items-center justify-center rounded-xl bg-primary/10 w-12 h-12">
                     <useCase.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
@@ -411,7 +411,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <MagicCard
-                className="cursor-target flex-1 p-8 bg-card/10 backdrop-blur-sm border-border/40 hover:border-primary/30 transition-colors"
+                className="flex-1 p-8 bg-card/10 backdrop-blur-sm border-border/40 hover:border-primary/30 transition-colors"
               >
                 <div className="space-y-8">
                   <div>
@@ -465,7 +465,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <MagicCard
-                className="cursor-target flex-1 p-8 bg-card/10 backdrop-blur-sm border-border/40 hover:border-primary/30 transition-colors"
+                className="flex-1 p-8 bg-card/10 backdrop-blur-sm border-border/40 hover:border-primary/30 transition-colors"
               >
                 <div className="space-y-8">
                   <div>

@@ -247,7 +247,7 @@ export default function PublicSharePage() {
     <div className="min-h-screen flex flex-col justify-between bg-background p-4 md:p-8 font-mono">
       {/* Top Bar */}
       <header className="flex items-center justify-between border-b border-border pb-4">
-        <Link href="/" className="cursor-target flex items-center gap-2 text-sm font-bold tracking-wider">
+        <Link href="/" className="flex items-center gap-2 text-sm font-bold tracking-wider">
           <Satellite className="h-4 w-4 text-primary" />
           <span>
             FS-<span className="text-primary">LITE</span>
@@ -277,7 +277,7 @@ export default function PublicSharePage() {
             </CardHeader>
             <CardContent className="space-y-4 text-center">
               <p className="text-xs text-muted-foreground">{error}</p>
-              <Button asChild size="sm" variant="outline" className="cursor-target rounded-none text-xs">
+              <Button asChild size="sm" variant="outline" className="rounded-none text-xs">
                 <Link href="/">Return to Dashboard</Link>
               </Button>
             </CardContent>
@@ -427,7 +427,7 @@ export default function PublicSharePage() {
                 <Button
                   onClick={handleStartDownload}
                   disabled={downloading}
-                  className="cursor-target flex-1 rounded-none gap-2 text-xs"
+                  className="flex-1 rounded-none gap-2 text-xs"
                 >
                   <Download className="h-3.5 w-3.5" />
                   {downloading
@@ -440,7 +440,7 @@ export default function PublicSharePage() {
                 {readyBlobUrl && (
                   <Button
                     variant="outline"
-                    className="cursor-target rounded-none gap-2 text-xs"
+                    className="rounded-none gap-2 text-xs"
                     onClick={() => {
                       const a = document.createElement("a");
                       a.href = readyBlobUrl;

@@ -7,8 +7,10 @@ import {
   Database,
   Download,
   Layers,
+  Link2,
   RefreshCw,
   Satellite,
+  Share2,
   ShieldAlert,
   ShieldCheck,
   Trash2,
@@ -37,10 +39,16 @@ const typeIcons: Record<string, React.ElementType> = {
   INTEGRITY_PASS: ShieldCheck,
   INTEGRITY_FAIL: ShieldAlert,
   INTEGRITY_ALERT: ShieldAlert,
+  ERASURE_ENCODE: ShieldCheck,
   ERASURE_DECODE: ShieldCheck,
   CACHE_HIT: Zap,
   CACHE_MISS: Zap,
   CACHE_EVICT: Zap,
+  FILE_SHARE: Share2,
+  FILE_SHARE_REVOKE: ShieldAlert,
+  FILE_SHARE_LINK_CREATE: Link2,
+  FILE_SHARE_LINK_REVOKE: ShieldAlert,
+  FILE_SHARE_DOWNLOAD: Download,
 };
 
 const typeColors: Record<string, string> = {
@@ -58,10 +66,16 @@ const typeColors: Record<string, string> = {
   INTEGRITY_PASS: "text-green-500",
   INTEGRITY_FAIL: "text-red-500",
   INTEGRITY_ALERT: "text-red-500",
+  ERASURE_ENCODE: "text-purple-500",
   ERASURE_DECODE: "text-purple-500",
   CACHE_HIT: "text-green-500",
   CACHE_MISS: "text-muted-foreground",
   CACHE_EVICT: "text-yellow-500",
+  FILE_SHARE: "text-primary",
+  FILE_SHARE_REVOKE: "text-yellow-500",
+  FILE_SHARE_LINK_CREATE: "text-primary",
+  FILE_SHARE_LINK_REVOKE: "text-yellow-500",
+  FILE_SHARE_DOWNLOAD: "text-blue-500",
 };
 
 const logVariants = {
@@ -88,7 +102,7 @@ export default function LogsPage() {
 
   const fetchLogs = useCallback(() => {
     const url = filter
-      ? `/api/fs/logs?type=${filter}`
+      ? `/api/fs/logs?category=${filter}&limit=500`
       : "/api/fs/logs?limit=500";
 
     fetch(url)
@@ -113,11 +127,11 @@ export default function LogsPage() {
 
   const filterTypes: { label: string; value: string | null }[] = [
     { label: "All", value: null },
-    { label: "Files", value: "FILE_UPLOAD" },
-    { label: "Nodes", value: "NODE_FAILURE" },
-    { label: "Integrity", value: "INTEGRITY_CHECK" },
-    { label: "Cache", value: "CACHE_HIT" },
-    { label: "Rebalance", value: "REBALANCE" },
+    { label: "Files", value: "files" },
+    { label: "Nodes", value: "nodes" },
+    { label: "Integrity", value: "integrity" },
+    { label: "Cache", value: "cache" },
+    { label: "Rebalance", value: "rebalance" },
   ];
 
   const totalPages = Math.ceil(entries.length / PAGE_SIZE);
@@ -136,7 +150,7 @@ export default function LogsPage() {
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 text-xs"
+          className="gap-2 text-xs rounded-none cursor-pointer"
           onClick={fetchLogs}
         >
           <RefreshCw className="h-3.5 w-3.5" />
@@ -151,7 +165,7 @@ export default function LogsPage() {
             key={ft.label}
             variant={filter === ft.value ? "default" : "outline"}
             size="sm"
-            className="text-[10px]"
+            className="text-xs font-mono rounded-none cursor-pointer"
             onClick={() => setFilter(ft.value)}
           >
             {ft.label}
@@ -159,7 +173,7 @@ export default function LogsPage() {
         ))}
       </div>
 
-      <Card>
+      <Card className="rounded-none">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-xs font-medium text-muted-foreground">
@@ -207,7 +221,7 @@ export default function LogsPage() {
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="outline"
-                            className="text-[9px] font-mono"
+                            className="text-[9px] font-mono rounded-none"
                           >
                             {entry.type}
                           </Badge>
@@ -234,7 +248,7 @@ export default function LogsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 w-7 p-0"
+                      className="h-7 w-7 p-0 rounded-none cursor-pointer"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
                     >
@@ -270,7 +284,7 @@ export default function LogsPage() {
                             key={p}
                             variant={page === p ? "default" : "outline"}
                             size="sm"
-                            className="h-7 min-w-7 px-2 text-xs"
+                            className="h-7 min-w-7 px-2 text-xs rounded-none cursor-pointer font-mono"
                             onClick={() => setPage(p as number)}
                           >
                             {p}
@@ -281,7 +295,7 @@ export default function LogsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 w-7 p-0"
+                      className="h-7 w-7 p-0 rounded-none cursor-pointer"
                       onClick={() =>
                         setPage((p) => Math.min(totalPages, p + 1))
                       }

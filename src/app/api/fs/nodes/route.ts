@@ -3,7 +3,7 @@
 // ============================================
 
 import { type NextRequest, NextResponse } from "next/server";
-import { createNode, getNodes, initEngine } from "@/lib/fs-lite";
+import { createNode, getNodes, initEngine, reconcileNodeStats } from "@/lib/fs-lite";
 import { nodeMutationProtection } from "@/lib/arcjet";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await initEngine();
+    await reconcileNodeStats();
     const nodes = getNodes();
 
     const summary = {

@@ -5,7 +5,7 @@
 import { mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { v4 as uuidv4 } from "uuid";
-import { connectDB, NodeModel } from "./db";
+import { connectDB, FileModel, NodeModel } from "./db";
 import { fsLogger } from "./logger";
 import type { FSNode, NodeStatus } from "./types";
 import { DEFAULT_CONFIG } from "./types";
@@ -135,6 +135,7 @@ export async function initializeNodes(
     }
     console.log("[FS-LITE] ── Health Check Complete ──");
 
+    await reconcileNodeStats();
     initialized = true;
     return;
   }
@@ -187,6 +188,7 @@ export async function initializeNodes(
         nodesCache.set(node.nodeId, node);
         await ensureNodeDir(node.nodeId, dataDir);
       }
+      await reconcileNodeStats();
       initialized = true;
       return;
     }
@@ -247,6 +249,7 @@ export async function initializeNodes(
     });
   }
 
+  await reconcileNodeStats();
   initialized = true;
 }
 
@@ -399,4 +402,52 @@ export function simulateLatency(nodeId: string): Promise<void> {
 export function resetNodes(): void {
   nodesCache = new Map();
   initialized = false;
+}
+
+/**
+ * Reconcile and synchronize node storage usage and chunk counts
+ * with the actual files stored in the database.
+ */
+export async function reconcileNodeStats(): Promise<void> {
+  try {
+    await connectDB();
+    const files = await FileModel.find({}, { chunks: 1 }).lean();
+
+    // Map actual chunk counts and sizes per node from existing files
+    const nodeStats = new Map<string, { usedBytes: number; chunkCount: number }>();
+    for (const file of files) {
+      if (Array.isArray(file.chunks)) {
+        for (const chunk of file.chunks) {
+          if (chunk.nodeId) {
+            const current = nodeStats.get(chunk.nodeId) || {
+              usedBytes: 0,
+              chunkCount: 0,
+            };
+            current.usedBytes += chunk.size || 0;
+            current.chunkCount += 1;
+            nodeStats.set(chunk.nodeId, current);
+          }
+        }
+      }
+    }
+
+    // Update nodes in cache and database
+    for (const [nodeId, node] of nodesCache) {
+      const stats = nodeStats.get(nodeId) || { usedBytes: 0, chunkCount: 0 };
+      if (
+        node.usedBytes !== stats.usedBytes ||
+        node.chunkCount !== stats.chunkCount
+      ) {
+        node.usedBytes = stats.usedBytes;
+        node.chunkCount = stats.chunkCount;
+        nodesCache.set(nodeId, node);
+        await NodeModel.updateOne(
+          { nodeId },
+          { usedBytes: stats.usedBytes, chunkCount: stats.chunkCount },
+        ).catch(() => {});
+      }
+    }
+  } catch {
+    // Non-blocking fallback
+  }
 }

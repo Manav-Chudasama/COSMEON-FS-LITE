@@ -35,6 +35,46 @@ export type LogEventType =
   | "FILE_SHARE_LINK_REVOKE"
   | "FILE_SHARE_DOWNLOAD";
 
+/** High-level operational categories for filtering logs */
+export type LogCategory = "files" | "nodes" | "integrity" | "cache" | "rebalance";
+
+export const LOG_CATEGORIES: Record<LogCategory, LogEventType[]> = {
+  files: [
+    "FILE_UPLOAD",
+    "FILE_DOWNLOAD",
+    "FILE_DELETE",
+    "CHUNK_DISTRIBUTE",
+    "CHUNK_REPLICATE",
+    "FILE_SHARE",
+    "FILE_SHARE_REVOKE",
+    "FILE_SHARE_LINK_CREATE",
+    "FILE_SHARE_LINK_REVOKE",
+    "FILE_SHARE_DOWNLOAD",
+  ],
+  nodes: [
+    "NODE_CREATE",
+    "NODE_FAILURE",
+    "NODE_RECOVERY",
+    "NODE_DEGRADED",
+  ],
+  integrity: [
+    "INTEGRITY_CHECK",
+    "INTEGRITY_PASS",
+    "INTEGRITY_FAIL",
+    "INTEGRITY_ALERT",
+    "ERASURE_ENCODE",
+    "ERASURE_DECODE",
+  ],
+  cache: [
+    "CACHE_HIT",
+    "CACHE_MISS",
+    "CACHE_EVICT",
+  ],
+  rebalance: [
+    "REBALANCE",
+  ],
+};
+
 /** Chunking strategy */
 export type ChunkingStrategy = "fixed" | "cdc";
 

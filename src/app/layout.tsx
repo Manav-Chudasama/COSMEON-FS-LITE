@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import type React from "react";
-import ClientCursor from "@/components/ClientCursor";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,7 +36,6 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <ClientCursor />
             {children}
             <Toaster />
           </TooltipProvider>

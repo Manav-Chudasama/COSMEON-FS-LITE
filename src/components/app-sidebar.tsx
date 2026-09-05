@@ -101,7 +101,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <Link
           href="/"
-          className="cursor-target flex items-center gap-2 text-sm font-bold tracking-wider"
+          className="flex items-center gap-2 text-sm font-bold tracking-wider"
         >
           <Satellite className="h-4 w-4 text-primary" />
           <span>
@@ -133,7 +133,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className="cursor-target"
+                      className=""
                     >
                       <Link href={item.href}>
                         <item.icon className="h-4 w-4" />
@@ -168,7 +168,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size="sm"
-          className="cursor-target w-full justify-start gap-2 text-xs"
+          className="w-full justify-start gap-2 text-xs"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         >
           <Sun className="h-3.5 w-3.5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -180,7 +180,7 @@ export function AppSidebar() {
         <Button
           variant="ghost"
           size="sm"
-          className="cursor-target w-full justify-start gap-2 text-xs text-muted-foreground hover:text-destructive"
+          className="w-full justify-start gap-2 text-xs text-muted-foreground hover:text-destructive"
           onClick={handleSignOut}
         >
           <LogOut className="h-3.5 w-3.5" />

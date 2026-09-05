@@ -546,14 +546,14 @@ export default function FilesPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="cursor-target text-xs rounded-none"
+                          className="text-xs rounded-none"
                           onClick={resetUploadState}
                         >
                           Upload Another
                         </Button>
                         <Button
                           size="sm"
-                          className="cursor-target text-xs rounded-none"
+                          className="text-xs rounded-none"
                           onClick={() => {
                             setUploadOpen(false);
                             resetUploadState();
@@ -641,7 +641,7 @@ export default function FilesPage() {
                       animate="visible"
                       exit="exit"
                       transition={{ delay: i * 0.05 }}
-                      className="cursor-target border-b transition-colors hover:bg-muted/50"
+                      className="border-b transition-colors hover:bg-muted/50"
                     >
                       <TableCell className="max-w-[200px] sm:max-w-[350px]">
                         <Link

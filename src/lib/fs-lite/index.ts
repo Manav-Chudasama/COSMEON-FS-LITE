@@ -78,6 +78,7 @@ export {
   getOnlineNodes,
   hasCapacity,
   initializeNodes,
+  reconcileNodeStats,
   setNodeStatus,
   updateNodeUsage,
 } from "./node-manager";
@@ -105,6 +106,7 @@ export type {
   FSNode,
   IntegrityReport,
   LatencyMode,
+  LogCategory,
   LogEventType,
   NodeStatus,
   OtpType,
@@ -118,7 +120,7 @@ export type {
   UserRole,
   UserSafe,
 } from "./types";
-export { DEFAULT_CONFIG } from "./types";
+export { DEFAULT_CONFIG, LOG_CATEGORIES } from "./types";
 
 // ── Initialization ────────────────────────────
 import { connectDB } from "./db";

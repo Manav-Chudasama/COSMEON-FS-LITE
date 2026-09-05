@@ -3,6 +3,7 @@
 import {
   Clock,
   HardDrive,
+  Loader2,
   Plus,
   Power,
   PowerOff,
@@ -18,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -192,11 +194,6 @@ export default function NodesPage() {
                 `${newStatus === "offline" ? "Failure" : "Recovery"} simulation complete`,
                 { description: event.message as string },
               );
-
-              setTimeout(() => {
-                setRebalanceOpen(false);
-                resetRebalanceState();
-              }, 1200);
             } else if (event.stage === "error") {
               toast.error(event.message as string);
             }
@@ -290,7 +287,7 @@ export default function NodesPage() {
 
         <div className="flex items-center gap-3">
           {/* Erasure Coding Toggle */}
-          <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-1.5 cursor-target">
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-1.5">
             <Shield className="h-3.5 w-3.5 text-muted-foreground" />
             <Label
               className="text-[10px] font-medium text-muted-foreground cursor-pointer"
@@ -365,10 +362,9 @@ export default function NodesPage() {
       <Dialog
         open={rebalanceOpen}
         onOpenChange={(open) => {
-          if (!rebalancing) {
-            setRebalanceOpen(open);
-            if (!open) resetRebalanceState();
-          }
+          if (rebalancing && rebalanceStage !== "complete" && rebalanceStage !== "report") return;
+          setRebalanceOpen(open);
+          if (!open) resetRebalanceState();
         }}
       >
         <DialogContent className="max-w-md">
@@ -458,7 +454,7 @@ export default function NodesPage() {
                 <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
                   LIVE FEED
                 </p>
-                <ScrollArea className="h-36 rounded-md border bg-muted/30 p-2">
+                <ScrollArea className="h-36 rounded-none border bg-muted/30 p-2">
                   <AnimatePresence>
                     {rebalanceEvents
                       .filter(
@@ -496,7 +492,7 @@ export default function NodesPage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-xs font-medium ${
+                className={`flex items-center justify-center gap-2 rounded-none border py-3 text-xs font-medium ${
                   rebalanceAction === "failure"
                     ? "border-orange-500/30 bg-orange-500/10 text-orange-500"
                     : "border-green-500/30 bg-green-500/10 text-green-500"
@@ -508,6 +504,34 @@ export default function NodesPage() {
                   : "Recovery Complete"}
               </motion.div>
             )}
+
+            {/* Dialog Footer */}
+            <DialogFooter className="mt-4 sm:justify-end gap-2">
+              {rebalanceStage === "complete" || rebalanceStage === "report" ? (
+                <Button
+                  size="sm"
+                  className="cursor-pointer text-xs rounded-none"
+                  onClick={() => {
+                    setRebalanceOpen(false);
+                    resetRebalanceState();
+                  }}
+                >
+                  Close
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs rounded-none"
+                  disabled
+                >
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  {rebalanceAction === "failure"
+                    ? "Rebalancing Constellation..."
+                    : "Synchronizing Node..."}
+                </Button>
+              )}
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
