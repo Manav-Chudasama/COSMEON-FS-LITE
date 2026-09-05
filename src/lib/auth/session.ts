@@ -5,7 +5,8 @@
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { verifyAuthToken } from "./jwt";
-import type { AuthTokenPayload } from "@/lib/fs-lite/types";
+import type { AuthTokenPayload, UserRole, UserSafe } from "@/lib/fs-lite/types";
+import { connectDB, UserModel } from "@/lib/fs-lite/db";
 
 const COOKIE_NAME = "auth_token";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
@@ -31,6 +32,36 @@ export async function getSession(): Promise<AuthTokenPayload | null> {
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
   return verifyAuthToken(token);
+}
+
+/**
+ * Get the authenticated user record from the database (for Server Components / API routes).
+ * Verifies both the JWT signature and that the user actually exists in the active database.
+ * Returns null if unauthenticated, token is invalid, or user does not exist in DB.
+ */
+export async function getAuthenticatedUser(): Promise<UserSafe | null> {
+  const session = await getSession();
+  if (!session) return null;
+
+  try {
+    await connectDB();
+    const user = (await UserModel.findOne({ userId: session.userId })
+      .select("-passwordHash -__v")
+      .lean()) as Record<string, unknown> | null;
+
+    if (!user) return null;
+
+    return {
+      userId: user.userId as string,
+      name: user.name as string,
+      email: user.email as string,
+      role: user.role as UserRole,
+      twoFactorEnabled: user.twoFactorEnabled !== false,
+      createdAt: user.createdAt as string,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**

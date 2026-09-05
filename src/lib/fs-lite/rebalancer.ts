@@ -11,8 +11,20 @@ import {
   updateNodeUsage,
 } from "./node-manager";
 import { replicateChunkToNode } from "./replicator";
+import { storageClient } from "./storage-client";
+import { computeHash } from "./integrity";
+import { decodeDataShards, encodeParityShards } from "./erasure-coding";
 import type { FSChunk, RebalanceReport } from "./types";
 import { DEFAULT_CONFIG } from "./types";
+
+/** Formats chunk label human-readably, avoiding negative indices for parity shards */
+function formatChunkLabel(chunk: FSChunk): string {
+  if (chunk.isParity || chunk.index < 0) {
+    const parityNum = Math.abs(chunk.index);
+    return `Parity P${parityNum}`;
+  }
+  return `Chunk #${chunk.index}`;
+}
 
 // ── Callback type for streaming progress events ───
 export type RebalanceProgressCallback = (event: {
@@ -84,21 +96,222 @@ export async function rebalanceOnFailure(
   });
 
   let processedChunks = 0;
+  let totalMovedBytes = 0;
+  let totalMovedCount = 0;
 
   for (const file of affectedFiles) {
     const updatedChunks: FSChunk[] = [];
+    const isEC = !!file.erasureCoded;
 
     for (const chunk of file.chunks) {
       // Check if this chunk's primary is on the failed node
       if (chunk.nodeId === failedNodeId) {
-        const targetNode = findBestTarget(onlineNodes, chunk.size, [
-          failedNodeId,
-          ...chunk.replicas,
-        ]);
+        // Exclude nodes already holding chunks from the same erasure group if EC
+        const usedInGroup = isEC && chunk.groupId
+          ? file.chunks.filter((c) => c.groupId === chunk.groupId).map((c) => c.nodeId)
+          : [failedNodeId, ...chunk.replicas];
 
-        if (targetNode) {
+        let targetNode = findBestTarget(onlineNodes, chunk.size, usedInGroup);
+        // Fallback if all online nodes hold a shard from this group: allow any online node
+        if (!targetNode && isEC) {
+          targetNode = findBestTarget(onlineNodes, chunk.size, [failedNodeId]);
+        }
+
+        if (!targetNode) {
+          // Capacity exhausted across online nodes
+          updatedChunks.push(chunk);
+          processedChunks++;
+          fsLogger.log(
+            "REBALANCE",
+            `Cluster capacity exhausted: unable to relocate ${formatChunkLabel(chunk)} of "${file.originalName}"`,
+            { chunkId: chunk.chunkId, fileId: file.fileId },
+          );
+          onProgress?.({
+            stage: "warning",
+            message: `⚠ Storage Cluster Full: Cannot relocate ${formatChunkLabel(chunk)} — no online node has space`,
+            chunkIndex: processedChunks,
+            totalChunks: totalAffectedChunks,
+          });
+          continue;
+        }
+
+        const tNode = getNode(targetNode.nodeId);
+        const tName = tNode?.name || targetNode.nodeId;
+
+        if (isEC) {
+          const groupChunks = file.chunks.filter((c) => c.groupId === chunk.groupId);
+          const groupDataChunks = groupChunks
+            .filter((c) => !c.isParity)
+            .sort((a, b) => (a.groupIndex ?? 0) - (b.groupIndex ?? 0));
+          const groupParityChunks = groupChunks
+            .filter((c) => c.isParity)
+            .sort((a, b) => (a.groupIndex ?? 0) - (b.groupIndex ?? 0));
+
+          if (chunk.isParity || chunk.index < 0) {
+            // Parity shard lost: recompute parity from surviving data shards
+            const dataBuffers: Buffer[] = [];
+            let allDataAvailable = true;
+
+            for (const gDataChunk of groupDataChunks) {
+              if (gDataChunk.nodeId === failedNodeId) {
+                allDataAvailable = false;
+                break;
+              }
+              try {
+                const dBuf = await storageClient.readChunk(gDataChunk.nodeId, gDataChunk.chunkId);
+                if (computeHash(dBuf) === gDataChunk.hash) {
+                  dataBuffers.push(dBuf);
+                } else {
+                  allDataAvailable = false;
+                  break;
+                }
+              } catch {
+                allDataAvailable = false;
+                break;
+              }
+            }
+
+            if (allDataAvailable && dataBuffers.length > 0) {
+              const parityBuffers = encodeParityShards(dataBuffers);
+              const pIdx =
+                chunk.groupIndex !== undefined && chunk.groupIndex >= groupDataChunks.length
+                  ? chunk.groupIndex - groupDataChunks.length
+                  : Math.max(0, Math.abs(chunk.index) - 1);
+              const pBuf = parityBuffers[pIdx] || parityBuffers[0];
+
+              await storageClient.writeChunk(targetNode.nodeId, chunk.chunkId, pBuf);
+              await updateNodeUsage(targetNode.nodeId, chunk.size, 1);
+              totalMovedBytes += chunk.size;
+              totalMovedCount += 1;
+
+              updatedChunks.push({ ...chunk, nodeId: targetNode.nodeId });
+              report.movedChunks.push({
+                chunkId: chunk.chunkId,
+                fromNodeId: failedNodeId,
+                fromNodeName: failedNodeName,
+                toNodeId: targetNode.nodeId,
+                toNodeName: tName,
+                chunkSize: chunk.size,
+                action: "recomputed",
+              });
+
+              processedChunks++;
+              onProgress?.({
+                stage: "migrate",
+                message: `${formatChunkLabel(chunk)} recomputed → ${tName}`,
+                chunkIndex: processedChunks,
+                totalChunks: totalAffectedChunks,
+                fromNode: failedNodeName,
+                toNode: tName,
+                action: "recomputed",
+              });
+            } else {
+              updatedChunks.push(chunk);
+              processedChunks++;
+              onProgress?.({
+                stage: "warning",
+                message: `⚠ ${formatChunkLabel(chunk)} cannot be recomputed — missing data shards`,
+                chunkIndex: processedChunks,
+                totalChunks: totalAffectedChunks,
+              });
+            }
+          } else {
+            // Data shard lost: reconstruct via decodeDataShards
+            const groupShards: (Buffer | null)[] = [];
+            for (const gChunk of groupDataChunks) {
+              if (gChunk.chunkId === chunk.chunkId || gChunk.nodeId === failedNodeId) {
+                groupShards.push(null);
+              } else {
+                try {
+                  const buf = await storageClient.readChunk(gChunk.nodeId, gChunk.chunkId);
+                  if (computeHash(buf) === gChunk.hash) {
+                    groupShards.push(buf);
+                  } else {
+                    groupShards.push(null);
+                  }
+                } catch {
+                  groupShards.push(null);
+                }
+              }
+            }
+
+            const parityBuffers: Buffer[] = [];
+            for (const pChunk of groupParityChunks) {
+              if (pChunk.nodeId === failedNodeId) {
+                parityBuffers.push(Buffer.alloc(0));
+              } else {
+                try {
+                  const pBuf = await storageClient.readChunk(pChunk.nodeId, pChunk.chunkId);
+                  if (computeHash(pBuf) === pChunk.hash) {
+                    parityBuffers.push(pBuf);
+                  } else {
+                    parityBuffers.push(Buffer.alloc(0));
+                  }
+                } catch {
+                  parityBuffers.push(Buffer.alloc(0));
+                }
+              }
+            }
+
+            const missingCount = groupShards.filter((s) => s === null).length;
+            const availableParityCount = parityBuffers.filter((p) => p.length > 0).length;
+
+            if (missingCount <= availableParityCount && availableParityCount > 0) {
+              const recovered = decodeDataShards(groupShards, parityBuffers);
+              const myIdx = groupDataChunks.findIndex((c) => c.chunkId === chunk.chunkId);
+              const recBuf = recovered[myIdx]?.subarray(0, chunk.size);
+
+              if (recBuf && computeHash(recBuf) === chunk.hash) {
+                await storageClient.writeChunk(targetNode.nodeId, chunk.chunkId, recBuf);
+                await updateNodeUsage(targetNode.nodeId, chunk.size, 1);
+                totalMovedBytes += chunk.size;
+                totalMovedCount += 1;
+
+                updatedChunks.push({ ...chunk, nodeId: targetNode.nodeId });
+                report.movedChunks.push({
+                  chunkId: chunk.chunkId,
+                  fromNodeId: failedNodeId,
+                  fromNodeName: failedNodeName,
+                  toNodeId: targetNode.nodeId,
+                  toNodeName: tName,
+                  chunkSize: chunk.size,
+                  action: "reconstructed",
+                });
+
+                processedChunks++;
+                onProgress?.({
+                  stage: "migrate",
+                  message: `Chunk #${chunk.index} reconstructed via parity → ${tName}`,
+                  chunkIndex: processedChunks,
+                  totalChunks: totalAffectedChunks,
+                  fromNode: failedNodeName,
+                  toNode: tName,
+                  action: "reconstructed",
+                });
+              } else {
+                updatedChunks.push(chunk);
+                processedChunks++;
+                onProgress?.({
+                  stage: "warning",
+                  message: `⚠ Chunk #${chunk.index} erasure decoding hash check failed`,
+                  chunkIndex: processedChunks,
+                  totalChunks: totalAffectedChunks,
+                });
+              }
+            } else {
+              updatedChunks.push(chunk);
+              processedChunks++;
+              onProgress?.({
+                stage: "warning",
+                message: `⚠ Chunk #${chunk.index} has ${missingCount} missing shards (exceeds parity capacity) — data at risk`,
+                chunkIndex: processedChunks,
+                totalChunks: totalAffectedChunks,
+              });
+            }
+          }
+        } else {
+          // Standard replication path
           if (chunk.replicas.length > 0) {
-            // Promote the first replica to primary
             const newPrimaryNodeId = chunk.replicas[0];
             const newPrimaryNode = getNode(newPrimaryNodeId);
             const newPrimaryName = newPrimaryNode?.name || newPrimaryNodeId;
@@ -106,9 +319,6 @@ export async function rebalanceOnFailure(
               (r) => r !== newPrimaryNodeId && r !== failedNodeId,
             );
 
-            // Re-replicate to the target for extra safety
-            const tNode = getNode(targetNode.nodeId);
-            const _tName = tNode?.name || targetNode.nodeId;
             const success = await replicateChunkToNode(
               { ...chunk, nodeId: newPrimaryNodeId },
               targetNode.nodeId,
@@ -118,6 +328,9 @@ export async function rebalanceOnFailure(
               await updateNodeUsage(targetNode.nodeId, chunk.size, 1);
               remainingReplicas.push(targetNode.nodeId);
             }
+
+            totalMovedBytes += chunk.size;
+            totalMovedCount += 1;
 
             updatedChunks.push({
               ...chunk,
@@ -146,7 +359,6 @@ export async function rebalanceOnFailure(
               action: "promoted",
             });
           } else {
-            // No replica available — chunk is at risk
             updatedChunks.push(chunk);
             fsLogger.log(
               "REBALANCE",
@@ -156,17 +368,14 @@ export async function rebalanceOnFailure(
             processedChunks++;
             onProgress?.({
               stage: "warning",
-              message: `⚠ Chunk #${chunk.index} of "${file.originalName}" has no replicas — data at risk`,
+              message: `⚠ ${formatChunkLabel(chunk)} of "${file.originalName}" has no replicas — data at risk`,
               chunkIndex: processedChunks,
               totalChunks: totalAffectedChunks,
             });
           }
-        } else {
-          updatedChunks.push(chunk);
-          processedChunks++;
         }
       } else if (chunk.replicas.includes(failedNodeId)) {
-        // The failed node was a replica — remove it and re-replicate
+        // Failed node was a replica
         const filteredReplicas = chunk.replicas.filter(
           (r) => r !== failedNodeId,
         );
@@ -190,6 +399,8 @@ export async function rebalanceOnFailure(
             if (success) {
               filteredReplicas.push(targetNode.nodeId);
               await updateNodeUsage(targetNode.nodeId, chunk.size, 1);
+              totalMovedBytes += chunk.size;
+              totalMovedCount += 1;
 
               report.movedChunks.push({
                 chunkId: chunk.chunkId,
@@ -204,14 +415,24 @@ export async function rebalanceOnFailure(
               processedChunks++;
               onProgress?.({
                 stage: "migrate",
-                message: `Chunk #${chunk.index} re-replicated ${primaryName} → ${tName}`,
+                message: `${formatChunkLabel(chunk)} re-replicated ${primaryName} → ${tName}`,
                 chunkIndex: processedChunks,
                 totalChunks: totalAffectedChunks,
                 fromNode: primaryName,
                 toNode: tName,
                 action: "re-replicated",
               });
+            } else {
+              processedChunks++;
             }
+          } else {
+            processedChunks++;
+            onProgress?.({
+              stage: "warning",
+              message: `⚠ Storage Cluster Full: Cannot re-replicate replica of ${formatChunkLabel(chunk)} — online nodes full`,
+              chunkIndex: processedChunks,
+              totalChunks: totalAffectedChunks,
+            });
           }
         }
 
@@ -227,12 +448,12 @@ export async function rebalanceOnFailure(
     await updateFileChunks(file.fileId, updatedChunks);
   }
 
-  // Reset failed node usage to zero — all its data is gone / migrated away
-  if (failedNode) {
+  // Deduct only chunks that were actually moved/reconstructed away from the failed node
+  if (failedNode && totalMovedCount > 0) {
     await updateNodeUsage(
       failedNodeId,
-      -failedNode.usedBytes,
-      -failedNode.chunkCount,
+      -totalMovedBytes,
+      -totalMovedCount,
     );
   }
 
@@ -348,7 +569,7 @@ export async function rebalanceOnRecovery(
           continue;
         }
 
-        // Only migrate chunks where the overloaded node is a replica (safer)
+        // Migrate replicas OR erasure-coded chunks for balance
         if (chunk.replicas.includes(overloadedNode.nodeId)) {
           // Replicate to the recovered node
           if (hasCapacity(recoveredNodeId, chunk.size)) {
@@ -379,7 +600,7 @@ export async function rebalanceOnRecovery(
               processedChunks++;
               onProgress?.({
                 stage: "migrate",
-                message: `Chunk #${chunk.index} ${overloadedName} → ${recoveredName}`,
+                message: `${formatChunkLabel(chunk)} ${overloadedName} → ${recoveredName}`,
                 chunkIndex: processedChunks,
                 totalChunks: chunksToMigrate,
                 fromNode: overloadedName,
@@ -387,6 +608,49 @@ export async function rebalanceOnRecovery(
                 action: "migrated",
               });
             } else {
+              updatedChunks.push(chunk);
+            }
+          } else {
+            updatedChunks.push(chunk);
+          }
+        } else if (file.erasureCoded && chunk.nodeId === overloadedNode.nodeId) {
+          // Check that recovered node does not already hold another shard in this erasure group
+          const groupNodeIds = file.chunks
+            .filter((c) => c.groupId === chunk.groupId)
+            .map((c) => c.nodeId);
+          if (!groupNodeIds.includes(recoveredNodeId) && hasCapacity(recoveredNodeId, chunk.size)) {
+            try {
+              const chunkData = await storageClient.readChunk(overloadedNode.nodeId, chunk.chunkId);
+              await storageClient.writeChunk(recoveredNodeId, chunk.chunkId, chunkData);
+              await storageClient.deleteChunk(overloadedNode.nodeId, chunk.chunkId);
+              await updateNodeUsage(recoveredNodeId, chunk.size, 1);
+              await updateNodeUsage(overloadedNode.nodeId, -chunk.size, -1);
+
+              updatedChunks.push({ ...chunk, nodeId: recoveredNodeId });
+              fileModified = true;
+
+              report.movedChunks.push({
+                chunkId: chunk.chunkId,
+                fromNodeId: overloadedNode.nodeId,
+                fromNodeName: overloadedName,
+                toNodeId: recoveredNodeId,
+                toNodeName: recoveredName,
+                chunkSize: chunk.size,
+                action: "migrated",
+              });
+
+              migrated++;
+              processedChunks++;
+              onProgress?.({
+                stage: "migrate",
+                message: `${formatChunkLabel(chunk)} ${overloadedName} → ${recoveredName}`,
+                chunkIndex: processedChunks,
+                totalChunks: chunksToMigrate,
+                fromNode: overloadedName,
+                toNode: recoveredName,
+                action: "migrated",
+              });
+            } catch {
               updatedChunks.push(chunk);
             }
           } else {

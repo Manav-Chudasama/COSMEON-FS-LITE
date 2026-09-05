@@ -209,6 +209,9 @@ export async function POST(request: NextRequest) {
               groups.push(chunks.slice(g, g + k));
             }
 
+            const totalParityExpected = groups.length * ec.parityShards;
+            const grandTotalChunks = rawChunks.length + totalParityExpected;
+            let currentWrittenCount = rawChunks.length;
             const allParityChunks: FSChunk[] = [];
 
             for (let gi = 0; gi < groups.length; gi++) {
@@ -255,11 +258,13 @@ export async function POST(request: NextRequest) {
                   nodeId: targetNode.nodeId,
                 };
 
+                currentWrittenCount++;
                 emit({
                   stage: "write",
                   message: `Writing parity P${pi + 1} (group ${gi + 1}) → ${nodeMap.get(targetNode.nodeId) || targetNode.nodeId}`,
-                  chunkIndex: `P${pi + 1}`,
-                  totalChunks,
+                  chunkIndex: currentWrittenCount - 1,
+                  displayIndex: `P${pi + 1}`,
+                  totalChunks: grandTotalChunks,
                   nodeName: nodeMap.get(targetNode.nodeId) || targetNode.nodeId,
                   chunkSize: parityBuffers[pi].length,
                 });

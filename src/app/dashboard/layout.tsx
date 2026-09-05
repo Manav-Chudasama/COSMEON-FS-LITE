@@ -1,15 +1,22 @@
+import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { getAuthenticatedUser } from "@/lib/auth/session";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    redirect("/login");
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />

@@ -311,7 +311,12 @@ export interface RebalanceReport {
     toNodeId: string;
     toNodeName: string;
     chunkSize: number;
-    action: "promoted" | "re-replicated" | "migrated";
+    action:
+      | "promoted"
+      | "re-replicated"
+      | "migrated"
+      | "reconstructed"
+      | "recomputed";
   }[];
   timestamp: string;
 }

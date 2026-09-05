@@ -85,10 +85,19 @@ export function AppSidebar() {
 
   useEffect(() => {
     fetch("/api/auth/me")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.user) setUser(data.user); })
+      .then(async (r) => {
+        if (!r.ok) {
+          router.push("/login");
+          router.refresh();
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (data?.user) setUser(data.user);
+      })
       .catch(() => {});
-  }, []);
+  }, [router]);
 
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });

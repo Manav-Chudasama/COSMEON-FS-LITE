@@ -203,14 +203,22 @@ export default function FilesPage() {
             ]);
 
             if (event.stage === "write") {
+              const currentNum =
+                typeof event.chunkIndex === "number"
+                  ? event.chunkIndex + 1
+                  : parseInt(String(event.chunkIndex).replace(/\D/g, ""), 10) || 1;
+              const totalNum =
+                typeof event.totalChunks === "number"
+                  ? event.totalChunks
+                  : parseInt(String(event.totalChunks), 10) || 0;
               setUploadProgress({
-                current: (event.chunkIndex as number) + 1,
-                total: event.totalChunks as number,
+                current: currentNum,
+                total: totalNum,
               });
             } else if (event.stage === "split_done") {
               setUploadProgress((prev) => ({
                 ...prev,
-                total: event.totalChunks as number,
+                total: Number(event.totalChunks) || prev.total,
               }));
             } else if (event.stage === "complete") {
               const result = event.result as {
@@ -268,7 +276,7 @@ export default function FilesPage() {
     split: "Split into Chunks",
     distribute: "Assign to Nodes",
     write: "Write to Nodes",
-    replicate: "Replicate Chunks",
+    replicate: "Replicate / Parity",
     complete: "Upload Complete",
   };
 
@@ -281,21 +289,35 @@ export default function FilesPage() {
       replicate: "replicate_done",
       complete: "complete",
     };
-    const currentIndex = stages.indexOf(uploadStage.replace(/_done$/, ""));
+    const normalizedCurrent = uploadStage.replace(/_done$/, "");
+    const effectiveCurrent =
+      normalizedCurrent.startsWith("erasure") || normalizedCurrent === "merkle"
+        ? "replicate"
+        : normalizedCurrent;
+
+    const currentIndex = stages.indexOf(effectiveCurrent);
     const stageIndex = stages.indexOf(stage);
 
-    if (uploadStage === "complete" || uploadStage === doneStages[stage])
+    if (
+      uploadStage === "complete" ||
+      uploadStage === doneStages[stage] ||
+      ((stage === "write" || stage === "replicate") &&
+        (uploadStage === "erasure_done" || uploadStage === "merkle"))
+    )
       return "done";
     if (stageIndex < currentIndex) return "done";
-    if (uploadStage === stage || uploadStage === `${stage}_done`)
+    if (
+      uploadStage === stage ||
+      uploadStage === `${stage}_done` ||
+      (stage === "replicate" && uploadStage.startsWith("erasure"))
+    )
       return "active";
     return "pending";
   };
 
-  const progressPercent =
-    uploadProgress.total > 0
-      ? Math.round((uploadProgress.current / uploadProgress.total) * 100)
-      : 0;
+  const cur = Number(uploadProgress.current) || 0;
+  const tot = Number(uploadProgress.total) || 0;
+  const progressPercent = tot > 0 ? Math.min(100, Math.round((cur / tot) * 100)) : 0;
 
   const ownedFiles = files.filter(
     (file) =>
@@ -570,7 +592,11 @@ export default function FilesPage() {
                         disabled
                       >
                         <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                        Distributing Chunks...
+                        {uploadStage === "merkle"
+                          ? "Building Merkle Tree..."
+                          : uploadStage.startsWith("erasure")
+                            ? "Encoding Parity..."
+                            : "Distributing Chunks..."}
                       </Button>
                     )}
                   </DialogFooter>

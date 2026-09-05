@@ -99,4 +99,69 @@ describe("decodeDataShards", () => {
       expect(Buffer.compare(recovered[i], original[i])).toBe(0);
     }
   });
+
+  it("successfully decrypts an erasure-coded encrypted file when parity chunks are excluded", () => {
+    process.env.ENCRYPTION_MASTER_KEY = "test-encryption-key-for-cosmeon-tests";
+    const { encryptFileBuffer, decryptFileBuffer } = require("../../src/lib/fs-lite/crypto");
+    const { reassembleFile } = require("../../src/lib/fs-lite/chunker");
+
+    const plainText = Buffer.from("Cosmeon FS-Lite orbital distributed storage system secret payload!");
+    const { ciphertext, meta } = encryptFileBuffer(plainText);
+
+    // Split ciphertext into 3 data chunks
+    const c1 = ciphertext.subarray(0, 20);
+    const c2 = ciphertext.subarray(20, 40);
+    const c3 = ciphertext.subarray(40);
+    const dataShards = [c1, c2, c3];
+
+    // Generate parity shards from ciphertext
+    const parityShards = encodeParityShards(dataShards);
+
+    // Simulated chunk list containing BOTH data and parity chunks
+    const chunks = [
+      { index: 0, isParity: false, buffer: c1 },
+      { index: 1, isParity: false, buffer: c2 },
+      { index: 2, isParity: false, buffer: c3 },
+      { index: -1, isParity: true, buffer: parityShards[0] },
+      { index: -2, isParity: true, buffer: parityShards[1] },
+    ];
+
+    // Reassembling ONLY non-parity chunks
+    const dataChunksOnly = chunks.filter((c) => !c.isParity).sort((a, b) => a.index - b.index);
+    const reassembled = reassembleFile(dataChunksOnly.map((c) => c.buffer));
+
+    // Decryption must succeed without tag verification error
+    const decrypted = decryptFileBuffer(reassembled, meta);
+    expect(decrypted.toString("utf8")).toBe(plainText.toString("utf8"));
+  });
+
+  it("recovers missing data shard from parity during simulated node failure and decrypts successfully", () => {
+    const { encryptFileBuffer, decryptFileBuffer } = require("../../src/lib/fs-lite/crypto");
+    const { reassembleFile } = require("../../src/lib/fs-lite/chunker");
+
+    const plainText = Buffer.from("Mission Critical Satellite Orbit Telemetry Stream 2026");
+    const { ciphertext, meta } = encryptFileBuffer(plainText);
+
+    const c1 = ciphertext.subarray(0, 18);
+    const c2 = ciphertext.subarray(18, 36);
+    const c3 = ciphertext.subarray(36);
+    const originalShards = [c1, c2, c3];
+    const parity = encodeParityShards(originalShards);
+
+    // Simulate node 2 offline: c2 is missing
+    const availableShards: (Buffer | null)[] = [c1, null, c3];
+    const recovered = decodeDataShards(availableShards, parity);
+
+    expect(Buffer.compare(recovered[1].subarray(0, c2.length), c2)).toBe(0);
+
+    // Reassemble with the recovered shard
+    const fullRecovered = reassembleFile([
+      c1,
+      recovered[1].subarray(0, c2.length),
+      c3,
+    ]);
+
+    const decrypted = decryptFileBuffer(fullRecovered, meta);
+    expect(decrypted.toString("utf8")).toBe(plainText.toString("utf8"));
+  });
 });

@@ -10,6 +10,7 @@ import {
   chunkCache,
   computeHash,
   connectDB,
+  decodeDataShards,
   decryptFileBuffer,
   DEFAULT_CONFIG,
   docToFSFile,
@@ -78,7 +79,8 @@ export async function POST(
     }
 
     const latencyMode = DEFAULT_CONFIG.latency.mode;
-    const sortedChunks = [...file.chunks].sort((a, b) => a.index - b.index);
+    const dataChunks = file.chunks.filter((c) => !c.isParity);
+    const sortedChunks = [...dataChunks].sort((a, b) => a.index - b.index);
     const totalChunks = sortedChunks.length;
 
     const encoder = new TextEncoder();
@@ -140,6 +142,77 @@ export async function POST(
               } catch {}
             }
 
+            // Fallback: Erasure recovery if primary and replicas unavailable
+            if (!data && file.erasureCoded && chunk.groupId) {
+              const groupDataChunks = file.chunks
+                .filter((c) => !c.isParity && c.groupId === chunk.groupId)
+                .sort((a, b) => (a.groupIndex ?? 0) - (b.groupIndex ?? 0));
+              const groupParityChunks = file.chunks
+                .filter((c) => c.isParity && c.groupId === chunk.groupId)
+                .sort((a, b) => (a.groupIndex ?? 0) - (b.groupIndex ?? 0));
+
+              const groupShards: (Buffer | null)[] = [];
+              for (const gChunk of groupDataChunks) {
+                if (gChunk.chunkId === chunk.chunkId) {
+                  groupShards.push(null);
+                } else {
+                  const gCached = chunkCache.get(gChunk.chunkId);
+                  if (gCached) {
+                    groupShards.push(gCached);
+                  } else {
+                    let gData: Buffer | null = null;
+                    for (const nid of [gChunk.nodeId, ...gChunk.replicas]) {
+                      try {
+                        gData = await storageClient.readChunk(nid, gChunk.chunkId);
+                        if (computeHash(gData) === gChunk.hash) break;
+                        gData = null;
+                      } catch {}
+                    }
+                    groupShards.push(gData);
+                  }
+                }
+              }
+
+              const parityBuffers: Buffer[] = [];
+              for (const pChunk of groupParityChunks) {
+                try {
+                  const pData = await storageClient.readChunk(pChunk.nodeId, pChunk.chunkId);
+                  if (computeHash(pData) === pChunk.hash) {
+                    parityBuffers.push(pData);
+                  } else {
+                    parityBuffers.push(Buffer.alloc(0));
+                  }
+                } catch {
+                  parityBuffers.push(Buffer.alloc(0));
+                }
+              }
+
+              const missingCount = groupShards.filter((s) => s === null).length;
+              const availableParityCount = parityBuffers.filter((p) => p.length > 0).length;
+
+              if (missingCount <= availableParityCount && availableParityCount > 0) {
+                const recovered = decodeDataShards(groupShards, parityBuffers);
+                const myIndexInGroup = groupDataChunks.findIndex((c) => c.chunkId === chunk.chunkId);
+                if (myIndexInGroup >= 0 && recovered[myIndexInGroup]) {
+                  data = recovered[myIndexInGroup].subarray(0, chunk.size);
+                  usedNodeId = "erasure_recovery";
+                  fsLogger.log(
+                    "ERASURE_DECODE",
+                    `Recovered shared chunk #${chunk.index} via erasure coding`,
+                    { chunkId: chunk.chunkId, fileId: file.fileId },
+                  );
+                  emit({
+                    stage: "read",
+                    message: `Chunk #${chunk.index} recovered via erasure parity (offline node bypassed)`,
+                    chunkIndex: chunk.index,
+                    totalChunks,
+                    nodeName: "Erasure Recovery",
+                    cacheHit: false,
+                  });
+                }
+              }
+            }
+
             if (!data) {
               emit({
                 stage: "error",
@@ -152,17 +225,19 @@ export async function POST(
             chunkCache.set(chunk.chunkId, data);
             chunkBuffers.push(data);
 
-            const node = getNode(usedNodeId);
-            const nodeName = node?.name || usedNodeId;
+            if (usedNodeId !== "erasure_recovery") {
+              const node = getNode(usedNodeId);
+              const nodeName = node?.name || usedNodeId;
 
-            emit({
-              stage: "read",
-              message: `Chunk #${chunk.index} from ${nodeName} (cache miss)`,
-              chunkIndex: chunk.index,
-              totalChunks,
-              nodeName,
-              cacheHit: false,
-            });
+              emit({
+                stage: "read",
+                message: `Chunk #${chunk.index} from ${nodeName} (cache miss)`,
+                chunkIndex: chunk.index,
+                totalChunks,
+                nodeName,
+                cacheHit: false,
+              });
+            }
           }
 
           // Reassemble
