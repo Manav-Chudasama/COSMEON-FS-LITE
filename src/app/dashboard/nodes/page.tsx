@@ -8,7 +8,6 @@ import {
   Power,
   PowerOff,
   Satellite,
-  Shield,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
@@ -28,7 +27,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Switch } from "@/components/ui/switch";
 import type { FSNode, NodeStatus } from "@/lib/fs-lite/types";
 
 function formatBytes(bytes: number): string {
@@ -61,8 +59,6 @@ export default function NodesPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [newNodeName, setNewNodeName] = useState("");
-  const [erasureEnabled, setErasureEnabled] = useState(false);
-  const [erasureLoading, setErasureLoading] = useState(false);
 
   // Rebalance dialog state
   const [rebalancing, setRebalancing] = useState(false);
@@ -92,11 +88,6 @@ export default function NodesPage() {
 
   useEffect(() => {
     fetchNodes();
-    // Fetch erasure coding state
-    fetch("/api/fs/erasure")
-      .then((r) => r.json())
-      .then((d) => setErasureEnabled(d.enabled ?? false))
-      .catch(() => {});
   }, [fetchNodes]);
 
   const resetRebalanceState = () => {
@@ -286,41 +277,6 @@ export default function NodesPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Erasure Coding Toggle */}
-          <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-1.5">
-            <Shield className="h-3.5 w-3.5 text-muted-foreground" />
-            <Label
-              className="text-[10px] font-medium text-muted-foreground cursor-pointer"
-              htmlFor="erasure-toggle"
-            >
-              Erasure Coding
-            </Label>
-            <Switch
-              id="erasure-toggle"
-              checked={erasureEnabled}
-              disabled={erasureLoading}
-              onCheckedChange={async (checked) => {
-                setErasureLoading(true);
-                try {
-                  const res = await fetch("/api/fs/erasure", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enabled: checked }),
-                  });
-                  if (!res.ok) throw new Error();
-                  setErasureEnabled(checked);
-                  toast.success(
-                    `Erasure coding ${checked ? "enabled (k=3, m=2)" : "disabled (using replication)"}`,
-                  );
-                } catch {
-                  toast.error("Failed to toggle erasure coding");
-                } finally {
-                  setErasureLoading(false);
-                }
-              }}
-            />
-          </div>
-
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2 text-xs">
